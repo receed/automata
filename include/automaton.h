@@ -2,14 +2,47 @@
 #define AUTOMATA_AUTOMATON_H
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 #include <ranges>
 #include <map>
+#include <cassert>
+#include <algorithm>
+#include <iostream>
 
 template<typename T>
 class Automaton {
 public:
-  using Transition = decltype(std::declval<T>().begin()->first);
+  using TransitionString = decltype(std::declval<T>().begin()->first);
+
+  struct Transition {
+    std::size_t from_state, to_state;
+    TransitionString transition_string;
+  };
+
+  Automaton(std::size_t initial_state, std::vector<T> transitions, std::vector<bool> is_accepting) :
+      transitions_(std::move(transitions)), initial_state_(initial_state), is_accepting_(std::move(is_accepting)) {
+    assert(transitions_.size() == is_accepting_.size());
+  }
+
+  Automaton(std::size_t state_number, std::size_t initial_state, const std::vector<Transition> &transitions,
+            const std::vector<std::size_t> &accepting_states) :
+      transitions_(state_number), initial_state_(initial_state), is_accepting_(state_number) {
+    for (const auto &[from_state, to_state, transition_string]: transitions)
+      transitions_[from_state].push_back({transition_string, to_state});
+    for (auto state: accepting_states)
+      SetAccepting(state);
+  }
+
+  explicit Automaton(std::size_t state_number) : initial_state_(state_number), transitions_(state_number) {}
+
+  Automaton() : Automaton(0) {}
+
+  bool operator==(const Automaton<T> &other) const {
+    return transitions_ == other.transitions_ && initial_state_ == other.initial_state_ &&
+           is_accepting_ == other.is_accepting_;
+//    return initial_state_ == other.initial_state_ && is_accepting_ == other.is_accepting_;
+  }
 
   std::size_t GetStateNumber() const {
     return is_accepting_.size();
@@ -29,7 +62,7 @@ public:
     return AddState(false);
   }
 
-  virtual void AddTransition(std::size_t from_state, std::size_t to_state, Transition transition_symbol) = 0;
+  virtual void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) = 0;
 
   const T &GetTransitions(std::size_t from_state) const {
     return transitions_[from_state];
@@ -47,6 +80,14 @@ public:
     is_accepting_[state] = accepting;
   }
 
+  template<typename F>
+  void ForEachEdge(F function) {
+    for (std::size_t state = 0; state < GetStateNumber(); ++state)
+      for (const auto &[transition, to_state]: GetTransitions(state))
+        function(state, to_state, transition);
+  }
+
+protected:
   std::vector<T> transitions_;
 
 private:
@@ -56,56 +97,59 @@ private:
 
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const Automaton<T> &automaton) {
-  auto state_count = automaton.GetStateNumber();
-  os << state_count << " states\n";
+  auto state_number = automaton.GetStateNumber();
+  os << state_number << " states\n";
   auto initial_state = automaton.initial_state();
   os << "Initial state: ";
   if (initial_state)
     os << *initial_state << "\n";
   else
     os << "undefined \n";
-  for (std::size_t state = 0; state < state_count; ++state) {
-    os << "State 0";
+  for (std::size_t state = 0; state < state_number; ++state) {
+    os << "State " << state;
     if (automaton.IsAccepting(state))
       os << " (accepting)";
     os << ":\n";
-    for (const auto &[transition, to_state]: automaton.GetTransitions(state))
-      os << "  to " << to_state << " by " << transition << '\n';
+    for (const auto &[transition_string, to_state]: automaton.GetTransitions(state))
+      os << "  to " << to_state << " by " << transition_string << '\n';
   }
   return os;
 }
 
 template<typename Transition>
-class NondeterministicAutomaton : public Automaton<std::vector<std::pair<Transition, std::size_t>>> {
+class AbstractAutomaton : public Automaton<std::vector<std::pair<Transition, std::size_t>>> {
 public:
-  void AddTransition(std::size_t from_state, std::size_t to_state, Transition transition_symbol) override {
-    this->transitions_[from_state].emplace_back(std::move(transition_symbol), to_state);
+  using Automaton<std::vector<std::pair<Transition, std::size_t>>>::Automaton;
+
+  void AddTransition(std::size_t from_state, std::size_t to_state, Transition transition_string) override {
+    this->transitions_[from_state].emplace_back(std::move(transition_string), to_state);
+  }
+
+  void RemoveDuplicateTransitions(std::size_t from_state) {
+    auto &outgoing_transitions = this->transitions_[from_state];
+    std::ranges::sort(outgoing_transitions);
+    auto to_erase = std::ranges::unique(outgoing_transitions);
+    outgoing_transitions.erase(to_erase.begin(), to_erase.end());
   }
 };
 
+
 class DeterministicAutomaton : public Automaton<std::map<char, std::size_t>> {
 public:
-  void AddTransition(std::size_t from_state, std::size_t to_state, Transition transition_symbol) override {
-    transitions_[from_state].emplace(transition_symbol, to_state);
-  }
+  void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) override;
 
-  std::optional<std::size_t> GetNextState(std::size_t state, char symbol) {
-    auto it = GetTransitions(state).find(symbol);
-    if (it == GetTransitions(state).end())
-      return std::nullopt;
-    return it->second;
-  }
+  std::optional<std::size_t> GetNextState(std::size_t state, char symbol);
 
-  bool AcceptsString(std::string_view string) {
-    std::size_t current_state = *initial_state();
-    for (char symbol : string) {
-      auto next_state = GetNextState(current_state, symbol);
-      if (!next_state)
-        return false;
-      current_state = *next_state;
-    }
-    return IsAccepting(current_state);
-  }
+  bool AcceptsString(std::string_view string);
+};
+
+class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
+public:
+  using AbstractAutomaton<std::string>::AbstractAutomaton;
+
+  NondeterministicAutomaton &SplitTransitions();
+
+  NondeterministicAutomaton &RemoveEmptyTransitions();
 };
 
 #endif //AUTOMATA_AUTOMATON_H
