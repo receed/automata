@@ -59,3 +59,17 @@ TEST_SUITE("Determinize") {
     );
   }
 }
+
+TEST_CASE("Make complete") {
+  CHECK_EQ(
+    DeterministicAutomaton{3, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}}}.MakeComplete({'a', 'b'}),
+    DeterministicAutomaton{4, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+  );
+}
+
+TEST_CASE("Complement") {
+  CHECK_EQ(
+      DeterministicAutomaton{4, 0, {0, 2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}.Complement(),
+      DeterministicAutomaton{4, 0, {1, 3}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+  );
+}

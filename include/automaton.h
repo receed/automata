@@ -149,9 +149,15 @@ public:
 
   void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) final;
 
+  bool HasTransition(std::size_t state, char symbol);
+
   std::optional<std::size_t> GetNextState(std::size_t state, char symbol);
 
   bool AcceptsString(std::string_view string);
+
+  DeterministicAutomaton& MakeComplete(const std::vector<char> &alphabet);
+
+  DeterministicAutomaton& Complement();
 };
 
 class NondeterministicAutomaton : public AbstractAutomaton<std::string> {

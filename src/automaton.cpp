@@ -1,7 +1,12 @@
 #include "automaton.h"
 
-void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) {
+void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
+                                           TransitionString transition_symbol) {
   transitions_[from_state].emplace(transition_symbol, to_state);
+}
+
+bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) {
+  return transitions_[state].count(symbol);
 }
 
 std::optional<std::size_t> DeterministicAutomaton::GetNextState(std::size_t state, char symbol) {
@@ -20,6 +25,22 @@ bool DeterministicAutomaton::AcceptsString(std::string_view string) {
     current_state = *next_state;
   }
   return IsAccepting(current_state);
+}
+
+DeterministicAutomaton &DeterministicAutomaton::MakeComplete(const std::vector<char> &alphabet) {
+  auto sink_state = AddState();
+  for (std::size_t state = 0; state < GetStateNumber(); ++state)
+    for (char symbol: alphabet) {
+      if (!HasTransition(state, symbol))
+        AddTransition(state, sink_state, symbol);
+    }
+  return *this;
+}
+
+DeterministicAutomaton &DeterministicAutomaton::Complement() {
+  for (std::size_t state = 0; state < GetStateNumber(); ++state)
+    SetAccepting(state, !IsAccepting(state));
+  return *this;
 }
 
 NondeterministicAutomaton &NondeterministicAutomaton::SplitTransitions() {
@@ -99,7 +120,7 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
       }
     }
 
-    for (const auto &[symbol, to_subset] : subset_transitions) {
+    for (const auto &[symbol, to_subset]: subset_transitions) {
       std::size_t to_subset_index;
       if (subset_indices.count(to_subset))
         to_subset_index = subset_indices.at(to_subset);
