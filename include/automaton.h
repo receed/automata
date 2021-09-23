@@ -25,23 +25,17 @@ public:
     assert(transitions_.size() == is_accepting_.size());
   }
 
-  Automaton(std::size_t state_number, std::size_t initial_state, const std::vector<Transition> &transitions,
-            const std::vector<std::size_t> &accepting_states) :
-      transitions_(state_number), initial_state_(initial_state), is_accepting_(state_number) {
-    for (const auto &[from_state, to_state, transition_string]: transitions)
-      transitions_[from_state].push_back({transition_string, to_state});
+  explicit Automaton(std::size_t state_number = 0, std::optional<std::size_t> initial_state = std::nullopt,
+                     const std::vector<std::size_t> &accepting_states = {}) : transitions_(state_number),
+                                                                              is_accepting_(state_number),
+                                                                              initial_state_(initial_state) {
     for (auto state: accepting_states)
       SetAccepting(state);
   }
 
-  explicit Automaton(std::size_t state_number) : initial_state_(state_number), transitions_(state_number) {}
-
-  Automaton() : Automaton(0) {}
-
   bool operator==(const Automaton<T> &other) const {
     return transitions_ == other.transitions_ && initial_state_ == other.initial_state_ &&
            is_accepting_ == other.is_accepting_;
-//    return initial_state_ == other.initial_state_ && is_accepting_ == other.is_accepting_;
   }
 
   std::size_t GetStateNumber() const {
@@ -91,8 +85,8 @@ protected:
   std::vector<T> transitions_;
 
 private:
-  std::optional<std::size_t> initial_state_;
   std::vector<bool> is_accepting_;
+  std::optional<std::size_t> initial_state_;
 };
 
 template<typename T>
@@ -116,12 +110,20 @@ std::ostream &operator<<(std::ostream &os, const Automaton<T> &automaton) {
   return os;
 }
 
-template<typename Transition>
-class AbstractAutomaton : public Automaton<std::vector<std::pair<Transition, std::size_t>>> {
+template<typename TransitionString>
+class AbstractAutomaton : public Automaton<std::vector<std::pair<TransitionString, std::size_t>>> {
 public:
-  using Automaton<std::vector<std::pair<Transition, std::size_t>>>::Automaton;
+  using Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Automaton;
+  using typename Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Transition;
 
-  void AddTransition(std::size_t from_state, std::size_t to_state, Transition transition_string) override {
+  AbstractAutomaton(std::size_t state_number, std::optional<std::size_t> initial_state,
+                    const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
+      : AbstractAutomaton(state_number, initial_state, accepting_states) {
+    for (const auto &transition: transitions)
+      AddTransition(transition.from_state, transition.to_state, transition.transition_string);
+  }
+
+  void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_string) final {
     this->transitions_[from_state].emplace_back(std::move(transition_string), to_state);
   }
 
@@ -134,9 +136,18 @@ public:
 };
 
 
-class DeterministicAutomaton : public Automaton<std::map<char, std::size_t>> {
+class DeterministicAutomaton : public Automaton<std::unordered_map<char, std::size_t>> {
 public:
-  void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) override;
+  using Automaton<std::unordered_map<char, std::size_t>>::Automaton;
+
+  DeterministicAutomaton(std::size_t state_number, std::optional<std::size_t> initial_state,
+                         const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
+      : DeterministicAutomaton(state_number, initial_state, accepting_states) {
+    for (const auto &[from_state, to_state, transition_string]: transitions)
+      AddTransition(from_state, to_state, transition_string);
+  }
+
+  void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) final;
 
   std::optional<std::size_t> GetNextState(std::size_t state, char symbol);
 
@@ -150,6 +161,8 @@ public:
   NondeterministicAutomaton &SplitTransitions();
 
   NondeterministicAutomaton &RemoveEmptyTransitions();
+
+  DeterministicAutomaton Determinize() const;
 };
 
 #endif //AUTOMATA_AUTOMATON_H

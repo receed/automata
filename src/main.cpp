@@ -2,6 +2,9 @@
 #include "automaton.h"
 
 int main() {
+  Automaton<std::vector<std::pair<std::string, std::size_t>>> aa{1, 0, {}};
+  AbstractAutomaton<std::string> ab{1, 0, {}, {}};
+
   DeterministicAutomaton a;
   a.AddState();
   a.AddState();
@@ -14,6 +17,7 @@ int main() {
   std::cout << a.AcceptsString("a") << '\n';
   std::cout << a.AcceptsString("abbb") << '\n';
   std::cout << a.AcceptsString("abbba") << '\n';
+
   NondeterministicAutomaton b;
   b.AddState();
   b.AddState();

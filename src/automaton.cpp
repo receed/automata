@@ -71,3 +71,45 @@ NondeterministicAutomaton &NondeterministicAutomaton::RemoveEmptyTransitions() {
   }
   return *this;
 }
+
+DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
+  std::vector<bool> initial_subset(GetStateNumber());
+  initial_subset[*initial_state()] = true;
+  std::map<std::vector<bool>, std::size_t> subset_indices{{initial_subset, 0}};
+  std::vector<std::vector<bool>> to_process{initial_subset};
+  DeterministicAutomaton determinized_automaton{1, 0};
+
+  while (!to_process.empty()) {
+    auto current_subset = std::move(to_process.back());
+    to_process.pop_back();
+    auto current_subset_index = subset_indices.at(current_subset);
+    std::unordered_map<char, std::vector<bool>> subset_transitions;
+
+    for (std::size_t state = 0; state < GetStateNumber(); ++state) {
+      if (!current_subset[state])
+        continue;
+      if (IsAccepting(state))
+        determinized_automaton.SetAccepting(current_subset_index);
+      for (auto[transition_string, to_state]: GetTransitions(state)) {
+        assert(transition_string.size() == 1);
+        auto symbol = transition_string[0];
+        if (!subset_transitions.count(symbol))
+          subset_transitions[symbol] = std::vector<bool>(GetStateNumber());
+        subset_transitions[symbol][to_state] = true;
+      }
+    }
+
+    for (const auto &[symbol, to_subset] : subset_transitions) {
+      std::size_t to_subset_index;
+      if (subset_indices.count(to_subset))
+        to_subset_index = subset_indices.at(to_subset);
+      else {
+        to_subset_index = determinized_automaton.AddState();
+        subset_indices[to_subset] = to_subset_index;
+        to_process.push_back(to_subset);
+      }
+      determinized_automaton.AddTransition(current_subset_index, to_subset_index, symbol);
+    }
+  }
+  return determinized_automaton;
+}
