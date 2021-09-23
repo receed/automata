@@ -62,14 +62,43 @@ TEST_SUITE("Determinize") {
 
 TEST_CASE("Make complete") {
   CHECK_EQ(
-    DeterministicAutomaton{3, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}}}.MakeComplete({'a', 'b'}),
-    DeterministicAutomaton{4, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+      DeterministicAutomaton{3, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}}}.MakeComplete({'a', 'b'}),
+      DeterministicAutomaton{4, 0, {2},
+                             {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'},
+                              {3, 3, 'b'}}}
   );
 }
 
 TEST_CASE("Complement") {
   CHECK_EQ(
-      DeterministicAutomaton{4, 0, {0, 2}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}.Complement(),
-      DeterministicAutomaton{4, 0, {1, 3}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+      DeterministicAutomaton{4, 0, {0, 2},
+                             {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'},
+                              {3, 3, 'b'}}}.Complement(),
+      DeterministicAutomaton{4, 0, {1, 3},
+                             {{0, 1, 'a'}, {0, 2, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'},
+                              {3, 3, 'b'}}}
   );
+}
+
+TEST_SUITE("Build regular expression") {
+  TEST_CASE("No cycles") {
+    CHECK_EQ(
+        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex(),
+        "(a+b)c"
+    );
+  }
+
+  TEST_CASE("Length 1 modulo 3") {
+    CHECK_EQ(
+        NondeterministicAutomaton{3, 0, {1}, {{0, 1, "a"}, {1, 2, "a"}, {2, 0, "a"}}}.ToRegex(),
+        "a(aaa)*"
+    );
+  }
+
+  TEST_CASE("Long regex") {
+    CHECK_EQ(
+        NondeterministicAutomaton{4, 1, {2}, {{1, 0, "a"}, {0, 3, "a"}, {0, 2, "b"}, {3, 2, "a"}, {3, 1, "b"}, {2, 1, "a"}}}.ToRegex(),
+        "(aab)*(ab+aaa)(a(aab)*(ab+aaa))*"
+    );
+  }
 }

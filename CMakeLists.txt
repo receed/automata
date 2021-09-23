@@ -23,10 +23,14 @@ include_directories(${DOCTEST_INCLUDE_DIR})
 set(CMAKE_CXX_STANDARD 20)
 include_directories(include)
 
-add_executable(automata src/main.cpp src/automaton.cpp)
+add_executable(automata
+        src/main.cpp
+        src/automaton.cpp
+        src/regex.cpp)
 
 add_executable(automata_test
         test/test.cpp
         src/automaton.cpp
+        src/regex.cpp
         )
 

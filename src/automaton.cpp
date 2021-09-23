@@ -1,4 +1,5 @@
 #include "automaton.h"
+#include "regex.h"
 
 void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
                                            TransitionString transition_symbol) {
@@ -41,6 +42,14 @@ DeterministicAutomaton &DeterministicAutomaton::Complement() {
   for (std::size_t state = 0; state < GetStateNumber(); ++state)
     SetAccepting(state, !IsAccepting(state));
   return *this;
+}
+
+NondeterministicAutomaton DeterministicAutomaton::ToNondeterministic() {
+  NondeterministicAutomaton result(initial_state(), is_accepting());
+  ForEachTransition([&result](auto from_state, auto to_state, auto transition_symbol) {
+    result.AddTransition(from_state, to_state, std::string(1, transition_symbol));
+  });
+  return result;
 }
 
 NondeterministicAutomaton &NondeterministicAutomaton::SplitTransitions() {
@@ -133,4 +142,46 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
     }
   }
   return determinized_automaton;
+}
+
+std::string NondeterministicAutomaton::ToRegex() const {
+  auto initial_state = *(this->initial_state());
+  auto state_number = GetStateNumber();
+  auto regex_transitions = std::vector(state_number, std::vector<Regex>(state_number));
+  ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
+    regex_transitions[from_state][to_state] += transition_string;
+  });
+
+  std::optional<std::size_t> accepting_state;
+  for (std::size_t state = 0; state < GetStateNumber(); ++state) {
+    if (state == initial_state)
+      continue;
+    if (IsAccepting(state)) {
+      assert(!accepting_state);
+      accepting_state = state;
+      continue;
+    }
+    for (std::size_t from_state = 0; from_state < state_number; ++from_state)
+      for (std::size_t to_state = 0; to_state < state_number; ++to_state) {
+        if (from_state == state || to_state == state)
+          continue;
+        auto shortcut_regex =
+            regex_transitions[from_state][state] *
+            regex_transitions[state][state].KleeneStar() *
+            regex_transitions[state][to_state];
+        regex_transitions[from_state][to_state] += shortcut_regex;
+      }
+    for (std::size_t other_state = 0; other_state < state_number; ++other_state)
+      regex_transitions[other_state][state] = regex_transitions[state][other_state] = {};
+  }
+  if (!accepting_state)
+    return "0";
+  if (initial_state == *accepting_state)
+    return regex_transitions[initial_state][initial_state].KleeneStar().repr();
+  auto initial_to_accepting =
+      regex_transitions[initial_state][initial_state].KleeneStar() * regex_transitions[initial_state][*accepting_state];
+  auto result = initial_to_accepting * (regex_transitions[*accepting_state][*accepting_state] +
+                                        regex_transitions[*accepting_state][initial_state] *
+                                        initial_to_accepting).KleeneStar();
+  return result.repr();
 }

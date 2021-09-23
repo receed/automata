@@ -20,8 +20,11 @@ public:
     TransitionString transition_string;
   };
 
-  Automaton(std::size_t initial_state, std::vector<T> transitions, std::vector<bool> is_accepting) :
-      transitions_(std::move(transitions)), initial_state_(initial_state), is_accepting_(std::move(is_accepting)) {
+  Automaton(std::optional<std::size_t> initial_state, std::vector<bool> is_accepting) :
+      initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(is_accepting_.size()) {}
+
+  Automaton(std::optional<std::size_t> initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
+      initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(std::move(transitions)) {
     assert(transitions_.size() == is_accepting_.size());
   }
 
@@ -40,6 +43,10 @@ public:
 
   std::size_t GetStateNumber() const {
     return is_accepting_.size();
+  }
+
+  const std::vector<bool> &is_accepting() const {
+    return is_accepting_;
   }
 
   bool IsAccepting(std::size_t state) const {
@@ -75,7 +82,7 @@ public:
   }
 
   template<typename F>
-  void ForEachEdge(F function) {
+  void ForEachTransition(F &&function) const {
     for (std::size_t state = 0; state < GetStateNumber(); ++state)
       for (const auto &[transition, to_state]: GetTransitions(state))
         function(state, to_state, transition);
@@ -133,8 +140,21 @@ public:
     auto to_erase = std::ranges::unique(outgoing_transitions);
     outgoing_transitions.erase(to_erase.begin(), to_erase.end());
   }
+
+  AbstractAutomaton &MakeSingleAcceptingState() {
+    auto state_number = this->GetStateNumber();
+    auto accepting_state = this->AddState();
+    this->SetAccepting(accepting_state, true);
+    for (std::size_t state = 0; state < state_number; ++state)
+      if (this->IsAccepting(state)) {
+        AddTransition(state, accepting_state, {});
+        this->SetAccepting(state, false);
+      }
+    return *this;
+  }
 };
 
+class NondeterministicAutomaton;
 
 class DeterministicAutomaton : public Automaton<std::unordered_map<char, std::size_t>> {
 public:
@@ -155,9 +175,11 @@ public:
 
   bool AcceptsString(std::string_view string);
 
-  DeterministicAutomaton& MakeComplete(const std::vector<char> &alphabet);
+  DeterministicAutomaton &MakeComplete(const std::vector<char> &alphabet);
 
-  DeterministicAutomaton& Complement();
+  DeterministicAutomaton &Complement();
+
+  NondeterministicAutomaton ToNondeterministic();
 };
 
 class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
@@ -169,6 +191,8 @@ public:
   NondeterministicAutomaton &RemoveEmptyTransitions();
 
   DeterministicAutomaton Determinize() const;
+
+  std::string ToRegex() const;
 };
 
 #endif //AUTOMATA_AUTOMATON_H
