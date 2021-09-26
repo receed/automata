@@ -9,6 +9,7 @@
 #include <cassert>
 #include <algorithm>
 #include <iostream>
+#include <stack>
 
 template<typename T>
 class Automaton {
@@ -90,6 +91,27 @@ public:
 
 protected:
   std::vector<T> transitions_;
+
+  std::vector<std::size_t> GetReachableStates() const {
+    std::vector<bool> is_reachable(GetStateNumber());
+    std::stack<std::size_t> to_process;
+    is_reachable[*initial_state()] = true;
+    to_process.push(*initial_state());
+    while (!to_process.empty()) {
+      auto state = to_process.top();
+      to_process.pop();
+      for (const auto &[transition, to_state] : GetTransitions(state))
+        if (!is_reachable[to_state]) {
+          is_reachable[to_state] = true;
+          to_process.push(to_state);
+        }
+    }
+    std::vector<std::size_t> reachable_states;
+    for (std::size_t state = 0; state < GetStateNumber(); ++state)
+      if (is_reachable[state])
+        reachable_states.push_back(state);
+    return reachable_states;
+  }
 
 private:
   std::vector<bool> is_accepting_;
@@ -180,6 +202,8 @@ public:
   DeterministicAutomaton &Complement();
 
   NondeterministicAutomaton ToNondeterministic();
+
+  DeterministicAutomaton Minimize() const;
 };
 
 class NondeterministicAutomaton : public AbstractAutomaton<std::string> {

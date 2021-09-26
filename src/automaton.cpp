@@ -52,6 +52,45 @@ NondeterministicAutomaton DeterministicAutomaton::ToNondeterministic() {
   return result;
 }
 
+DeterministicAutomaton DeterministicAutomaton::Minimize() const {
+  std::vector<std::size_t> class_indexes(GetStateNumber());
+  std::size_t class_number = 0;
+  auto reachable_states = GetReachableStates();
+  for (std::size_t state = 0; state < GetStateNumber(); ++state)
+    if (IsAccepting(state) != IsAccepting(0)) {
+      class_number = 1;
+      class_indexes[state] = 1;
+    }
+  while (true) {
+    std::vector<std::size_t> new_class_indexes(GetStateNumber());
+    std::map<std::vector<std::size_t>, std::size_t> index_of_class;
+    for (std::size_t state = 0; state < GetStateNumber(); ++state) {
+      assert(GetTransitions(state).size() == GetTransitions(0).size());
+      std::vector<std::size_t> new_class{class_indexes[state]};
+      for (auto [transition_symbol, to_state] : GetTransitions(state))
+        new_class.push_back(class_indexes[to_state]);
+      auto it = index_of_class.find(new_class);
+      if (it != index_of_class.end())
+        new_class_indexes[state] = it->second;
+      else {
+        new_class_indexes[state] = index_of_class.size();
+        index_of_class[new_class] = new_class_indexes[state];
+      }
+    }
+    class_number = index_of_class.size();
+    if (new_class_indexes == class_indexes)
+      break;
+    class_indexes = new_class_indexes;
+  }
+  DeterministicAutomaton minimized_automaton{class_number, class_indexes[*initial_state()]};
+  for (std::size_t state = 0; state < GetStateNumber(); ++state)
+    minimized_automaton.SetAccepting(class_indexes[state], IsAccepting(state));
+  ForEachTransition([&minimized_automaton, &class_indexes](auto from_state, auto to_state, auto transition_symbol) {
+    minimized_automaton.AddTransition(class_indexes[from_state], class_indexes[to_state], transition_symbol);
+  });
+  return minimized_automaton;
+}
+
 NondeterministicAutomaton &NondeterministicAutomaton::SplitTransitions() {
   auto state_number = GetStateNumber();
   for (std::size_t state = 0; state < state_number; ++state) {

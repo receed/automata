@@ -102,3 +102,26 @@ TEST_SUITE("Build regular expression") {
     );
   }
 }
+
+TEST_SUITE("Minimization") {
+  TEST_CASE("Identical vertices") {
+    CHECK_EQ(
+        DeterministicAutomaton{5, 0, {3}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 3, 'a'}, {1, 4, 'b'}, {2, 3, 'a'}, {2, 4, 'b'}, {3, 4, 'a'}, {3, 4, 'b'}, {4, 4, 'a'}, {4, 4, 'b'}}}.Minimize(),
+        DeterministicAutomaton{4, 0, {2}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+    );
+  }
+
+  TEST_CASE("Identical groups") {
+    CHECK_EQ(
+        DeterministicAutomaton{6, 0, {1, 3}, {{0, 1, 'a'}, {0, 3, 'b'}, {1, 2, 'a'}, {1, 5, 'b'}, {2, 1, 'a'}, {2, 5, 'b'}, {3, 4, 'a'}, {3, 5, 'b'}, {4, 3, 'a'}, {4, 5, 'b'}, {5, 5, 'a'}, {5, 5, 'b'}}}.Minimize(),
+        DeterministicAutomaton{4, 0, {1}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 1, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+    );
+  }
+
+  TEST_CASE("Unreachable state") {
+    CHECK_EQ(
+      DeterministicAutomaton{3, 0, {2}, {{0, 0, 'a'}, {0, 2, 'b'}, {1, 0, 'a'}, {1, 2, 'b'}, {2, 2, 'a'}, {2, 2, 'b'}}}.Minimize(),
+      DeterministicAutomaton{2, 0, {1}, {{0, 0, 'a'}, {0, 1, 'b'}, {1, 1, 'a'}, {1, 1, 'b'}}}
+    );
+  }
+}
