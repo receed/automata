@@ -1,5 +1,7 @@
 #include "automaton.h"
 #include "regex.h"
+#include <vector>
+#include <algorithm>
 
 void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
                                            TransitionString transition_symbol) {
@@ -183,12 +185,13 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
   return determinized_automaton;
 }
 
-std::string NondeterministicAutomaton::ToRegex() const {
+regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
   auto initial_state = *(this->initial_state());
   auto state_number = GetStateNumber();
-  auto regex_transitions = std::vector(state_number, std::vector<Regex>(state_number));
+  auto regex_transitions = std::vector(state_number, std::vector<regex::RegexPtr>(state_number, regex::create<regex::None>()));
   ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
-    regex_transitions[from_state][to_state] += transition_string;
+    for (char symbol : transition_string)
+      regex_transitions[from_state][to_state] += regex::create<regex::Literal>(symbol);
   });
 
   std::optional<std::size_t> accepting_state;
@@ -206,21 +209,21 @@ std::string NondeterministicAutomaton::ToRegex() const {
           continue;
         auto shortcut_regex =
             regex_transitions[from_state][state] *
-            regex_transitions[state][state].KleeneStar() *
+            regex::Iterate(regex_transitions[state][state]) *
             regex_transitions[state][to_state];
         regex_transitions[from_state][to_state] += shortcut_regex;
       }
     for (std::size_t other_state = 0; other_state < state_number; ++other_state)
-      regex_transitions[other_state][state] = regex_transitions[state][other_state] = {};
+      regex_transitions[other_state][state] = regex_transitions[state][other_state] = regex::create<regex::None>();
   }
   if (!accepting_state)
-    return "0";
+    return regex::create<regex::None>();
   if (initial_state == *accepting_state)
-    return regex_transitions[initial_state][initial_state].KleeneStar().repr();
+    return regex::Iterate(regex_transitions[initial_state][initial_state]);
   auto initial_to_accepting =
-      regex_transitions[initial_state][initial_state].KleeneStar() * regex_transitions[initial_state][*accepting_state];
-  auto result = initial_to_accepting * (regex_transitions[*accepting_state][*accepting_state] +
+      regex::Iterate(regex_transitions[initial_state][initial_state]) * regex_transitions[initial_state][*accepting_state];
+  auto result = initial_to_accepting * regex::Iterate(regex_transitions[*accepting_state][*accepting_state] +
                                         regex_transitions[*accepting_state][initial_state] *
-                                        initial_to_accepting).KleeneStar();
-  return result.repr();
+                                        initial_to_accepting);
+  return result;
 }

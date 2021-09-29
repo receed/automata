@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <iostream>
 #include <stack>
+#include "regex.h"
 
 template<typename T>
 class Automaton {
@@ -216,7 +217,7 @@ public:
 
   DeterministicAutomaton Determinize() const;
 
-  std::string ToRegex() const;
+  regex::RegexPtr ToRegex() const;
 };
 
 #endif //AUTOMATA_AUTOMATON_H

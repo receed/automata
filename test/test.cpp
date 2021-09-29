@@ -83,21 +83,21 @@ TEST_CASE("Complement") {
 TEST_SUITE("Build regular expression") {
   TEST_CASE("No cycles") {
     CHECK_EQ(
-        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex(),
+        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex()->ToString(),
         "(a+b)c"
     );
   }
 
   TEST_CASE("Length 1 modulo 3") {
     CHECK_EQ(
-        NondeterministicAutomaton{3, 0, {1}, {{0, 1, "a"}, {1, 2, "a"}, {2, 0, "a"}}}.ToRegex(),
+        NondeterministicAutomaton{3, 0, {1}, {{0, 1, "a"}, {1, 2, "a"}, {2, 0, "a"}}}.ToRegex()->ToString(),
         "a(aaa)*"
     );
   }
 
   TEST_CASE("Long regex") {
     CHECK_EQ(
-        NondeterministicAutomaton{4, 1, {2}, {{1, 0, "a"}, {0, 3, "a"}, {0, 2, "b"}, {3, 2, "a"}, {3, 1, "b"}, {2, 1, "a"}}}.ToRegex(),
+        NondeterministicAutomaton{4, 1, {2}, {{1, 0, "a"}, {0, 3, "a"}, {0, 2, "b"}, {3, 2, "a"}, {3, 1, "b"}, {2, 1, "a"}}}.ToRegex()->ToString(),
         "(aab)*(ab+aaa)(a(aab)*(ab+aaa))*"
     );
   }
@@ -123,5 +123,35 @@ TEST_SUITE("Minimization") {
       DeterministicAutomaton{3, 0, {2}, {{0, 0, 'a'}, {0, 2, 'b'}, {1, 0, 'a'}, {1, 2, 'b'}, {2, 2, 'a'}, {2, 2, 'b'}}}.Minimize(),
       DeterministicAutomaton{2, 0, {1}, {{0, 0, 'a'}, {0, 1, 'b'}, {1, 1, 'a'}, {1, 1, 'b'}}}
     );
+  }
+}
+
+using namespace regex;
+
+void CheckPrintAndParse(const RegexPtr &regex, const std::string &representation) {
+  CHECK_EQ(regex->ToString(), representation);
+  CHECK_EQ(regex::parse(representation)->ToString(), representation);
+}
+
+TEST_SUITE("Print and parse regex") {
+
+  TEST_CASE("Simple string") {
+    CheckPrintAndParse(CreateLiteral('a') * CreateLiteral('b') * CreateLiteral('c'), "abc");
+  }
+
+  TEST_CASE("Alteration") {
+    CheckPrintAndParse(CreateLiteral('a') + CreateLiteral('b') + CreateLiteral('c'), "a+b+c");
+  }
+
+  TEST_CASE("Kleene star") {
+    CheckPrintAndParse(Iterate(CreateLiteral('a')), "a*");
+  }
+
+  TEST_CASE("Regex without parentheses") {
+    CheckPrintAndParse(CreateLiteral('c') + Iterate(CreateLiteral('a')) * CreateLiteral('b'), "c+a*b");
+  }
+
+  TEST_CASE("Regex with parentheses") {
+    CheckPrintAndParse(Iterate((CreateLiteral('c') + CreateLiteral('a')) * CreateLiteral('b')), "((c+a)b)*");
   }
 }

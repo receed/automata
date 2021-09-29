@@ -1,46 +1,120 @@
-#ifndef AUTOMATA_REGEX_H
-#define AUTOMATA_REGEX_H
+#ifndef AUTOMATA_REGEXP_H
+#define AUTOMATA_REGEXP_H
 
-#include <string>
+#include <variant>
+#include <memory>
+#include <iostream>
+#include <sstream>
 
-class Regex {
-public:
-  Regex() : repr_("0"), outer_priority_(0) {}
+namespace regex {
+  class Regex;
 
-  Regex(std::string string) : outer_priority_(repr_.size() > 1 ? 1 : 2) {
-    if (string.empty())
-      repr_ = "1";
-    else
-      repr_ = std::move(string);
+  using RegexPtr = std::shared_ptr<Regex>;
+
+  struct Regex {
+    explicit Regex(std::size_t priority) : priority_(priority) {}
+
+    virtual ~Regex() = default;
+
+    std::string ToString() const {
+      std::ostringstream os;
+      Print(os);
+      return os.str();
+    }
+
+    virtual void Print(std::ostream &os) const = 0;
+
+    virtual bool IsNone() {
+      return false;
+    }
+
+    virtual bool IsEmpty() {
+      return false;
+    }
+
+    void Print(std::size_t outer_priority, std::ostream &os) const;
+
+    std::size_t priority_;
+  };
+
+  struct None : public Regex {
+    None() : Regex(2) {}
+
+    bool IsNone() override {
+      return true;
+    }
+
+    void Print(std::ostream &os) const override;
+  };
+
+  struct Empty : public Regex {
+    Empty() : Regex(2) {}
+
+    bool IsEmpty() override {
+      return true;
+    }
+
+    void Print(std::ostream &os) const override;
+  };
+
+  struct Literal : public Regex {
+    explicit Literal(char symbol) : Regex(2), symbol(symbol) {}
+
+    void Print(std::ostream &os) const override;
+
+    char symbol;
+  };
+
+  struct Concatenation : public Regex {
+    Concatenation(RegexPtr first, RegexPtr second) : Regex(1), first(std::move(first)), second(std::move(second)) {}
+
+    void Print(std::ostream &os) const override;
+
+    RegexPtr first;
+    RegexPtr second;
+  };
+
+  struct Alteration : public Regex {
+    Alteration(RegexPtr first, RegexPtr second) : Regex(0), first(std::move(first)), second(std::move(second)) {}
+
+    void Print(std::ostream &os) const override;
+
+    RegexPtr first;
+    RegexPtr second;
+  };
+
+  struct KleeneStar : public Regex {
+    explicit KleeneStar(RegexPtr inner) : Regex(2), inner(std::move(inner)) {}
+
+    void Print(std::ostream &os) const override;
+
+    RegexPtr inner;
+  };
+
+  RegexPtr CreateLiteral(char symbol);
+
+  RegexPtr Iterate(RegexPtr inner);
+
+  RegexPtr operator+(RegexPtr first, RegexPtr second);
+
+  RegexPtr &operator+=(RegexPtr &first, RegexPtr second);
+
+  RegexPtr operator*(RegexPtr first, RegexPtr second);
+
+  RegexPtr &operator*=(RegexPtr &first, RegexPtr second);
+
+  RegexPtr parse(const std::string &input);
+
+  template<typename T, typename... Args>
+  RegexPtr create(Args &&... args) {
+    return std::make_shared<T>(std::forward<Args>(args)...);
   }
 
-  Regex(std::string repr, std::size_t outer_priority) : repr_(std::move(repr)), outer_priority_(outer_priority) {}
+  template<>
+  RegexPtr create<None>();
 
-  std::string repr() const {
-    return repr_;
-  }
+  template<>
+  RegexPtr create<Empty>();
+}
 
-  bool IsEmptySet() const {
-    return repr_ == "0";
-  }
-
-  bool IsEmptyString() const {
-    return repr_ == "1";
-  }
-
-  Regex operator+(const Regex &other) const;
-
-  Regex &operator+=(const Regex &other);
-
-  Regex operator*(const Regex &other) const;
-
-  Regex KleeneStar();
-
-private:
-  std::string repr_;
-  std::size_t outer_priority_;
-
-  std::string parenthesize(std::size_t operation_priority) const;
-};
-
-#endif //AUTOMATA_REGEX_H
+#endif //AUTOMATA_REGEXP_H
