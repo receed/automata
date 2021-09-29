@@ -22,15 +22,15 @@ public:
     TransitionString transition_string;
   };
 
-  Automaton(std::optional<std::size_t> initial_state, std::vector<bool> is_accepting) :
+  Automaton(std::size_t initial_state, std::vector<bool> is_accepting) :
       initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(is_accepting_.size()) {}
 
-  Automaton(std::optional<std::size_t> initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
+  Automaton(std::size_t initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
       initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(std::move(transitions)) {
     assert(transitions_.size() == is_accepting_.size());
   }
 
-  explicit Automaton(std::size_t state_number = 0, std::optional<std::size_t> initial_state = std::nullopt,
+  explicit Automaton(std::size_t state_number = 0, std::size_t initial_state = 0,
                      const std::vector<std::size_t> &accepting_states = {}) : transitions_(state_number),
                                                                               is_accepting_(state_number),
                                                                               initial_state_(initial_state) {
@@ -71,7 +71,7 @@ public:
     return transitions_[from_state];
   }
 
-  std::optional<std::size_t> initial_state() const {
+  std::size_t initial_state() const {
     return initial_state_;
   }
 
@@ -96,8 +96,8 @@ protected:
   std::vector<std::size_t> GetReachableStates() const {
     std::vector<bool> is_reachable(GetStateNumber());
     std::stack<std::size_t> to_process;
-    is_reachable[*initial_state()] = true;
-    to_process.push(*initial_state());
+    is_reachable[initial_state()] = true;
+    to_process.push(initial_state());
     while (!to_process.empty()) {
       auto state = to_process.top();
       to_process.pop();
@@ -116,19 +116,14 @@ protected:
 
 private:
   std::vector<bool> is_accepting_;
-  std::optional<std::size_t> initial_state_;
+  std::size_t initial_state_;
 };
 
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const Automaton<T> &automaton) {
   auto state_number = automaton.GetStateNumber();
   os << state_number << " states\n";
-  auto initial_state = automaton.initial_state();
-  os << "Initial state: ";
-  if (initial_state)
-    os << *initial_state << "\n";
-  else
-    os << "undefined \n";
+  os << "Initial state: " << automaton.initial_state() << "\n";
   for (std::size_t state = 0; state < state_number; ++state) {
     os << "State " << state;
     if (automaton.IsAccepting(state))
@@ -146,7 +141,7 @@ public:
   using Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Automaton;
   using typename Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Transition;
 
-  AbstractAutomaton(std::size_t state_number, std::optional<std::size_t> initial_state,
+  AbstractAutomaton(std::size_t state_number, std::size_t initial_state,
                     const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
       : AbstractAutomaton(state_number, initial_state, accepting_states) {
     for (const auto &transition: transitions)
@@ -183,7 +178,7 @@ class DeterministicAutomaton : public Automaton<std::unordered_map<char, std::si
 public:
   using Automaton<std::unordered_map<char, std::size_t>>::Automaton;
 
-  DeterministicAutomaton(std::size_t state_number, std::optional<std::size_t> initial_state,
+  DeterministicAutomaton(std::size_t state_number, std::size_t initial_state,
                          const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
       : DeterministicAutomaton(state_number, initial_state, accepting_states) {
     for (const auto &[from_state, to_state, transition_string]: transitions)

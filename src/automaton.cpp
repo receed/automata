@@ -20,7 +20,7 @@ std::optional<std::size_t> DeterministicAutomaton::GetNextState(std::size_t stat
 }
 
 bool DeterministicAutomaton::AcceptsString(std::string_view string) {
-  std::size_t current_state = *initial_state();
+  std::size_t current_state = initial_state();
   for (char symbol: string) {
     auto next_state = GetNextState(current_state, symbol);
     if (!next_state)
@@ -84,7 +84,7 @@ DeterministicAutomaton DeterministicAutomaton::Minimize() const {
       break;
     class_indexes = new_class_indexes;
   }
-  DeterministicAutomaton minimized_automaton{class_number, class_indexes[*initial_state()]};
+  DeterministicAutomaton minimized_automaton{class_number, class_indexes[initial_state()]};
   for (std::size_t state = 0; state < GetStateNumber(); ++state)
     minimized_automaton.SetAccepting(class_indexes[state], IsAccepting(state));
   ForEachTransition([&minimized_automaton, &class_indexes](auto from_state, auto to_state, auto transition_symbol) {
@@ -145,7 +145,7 @@ NondeterministicAutomaton &NondeterministicAutomaton::RemoveEmptyTransitions() {
 
 DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
   std::vector<bool> initial_subset(GetStateNumber());
-  initial_subset[*initial_state()] = true;
+  initial_subset[initial_state()] = true;
   std::map<std::vector<bool>, std::size_t> subset_indices{{initial_subset, 0}};
   std::vector<std::vector<bool>> to_process{initial_subset};
   DeterministicAutomaton determinized_automaton{1, 0};
@@ -186,7 +186,6 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
 }
 
 regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
-  auto initial_state = *(this->initial_state());
   auto state_number = GetStateNumber();
   auto regex_transitions = std::vector(state_number, std::vector<regex::RegexPtr>(state_number, regex::create<regex::None>()));
   ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
@@ -196,7 +195,7 @@ regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
 
   std::optional<std::size_t> accepting_state;
   for (std::size_t state = 0; state < GetStateNumber(); ++state) {
-    if (state == initial_state)
+    if (state == initial_state())
       continue;
     if (IsAccepting(state)) {
       assert(!accepting_state);
@@ -218,12 +217,12 @@ regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
   }
   if (!accepting_state)
     return regex::create<regex::None>();
-  if (initial_state == *accepting_state)
-    return regex::Iterate(regex_transitions[initial_state][initial_state]);
+  if (initial_state() == *accepting_state)
+    return regex::Iterate(regex_transitions[initial_state()][initial_state()]);
   auto initial_to_accepting =
-      regex::Iterate(regex_transitions[initial_state][initial_state]) * regex_transitions[initial_state][*accepting_state];
+      regex::Iterate(regex_transitions[initial_state()][initial_state()]) * regex_transitions[initial_state()][*accepting_state];
   auto result = initial_to_accepting * regex::Iterate(regex_transitions[*accepting_state][*accepting_state] +
-                                        regex_transitions[*accepting_state][initial_state] *
+                                        regex_transitions[*accepting_state][initial_state()] *
                                         initial_to_accepting);
   return result;
 }
