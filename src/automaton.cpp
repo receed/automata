@@ -5,7 +5,7 @@
 
 void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
                                            TransitionString transition_symbol) {
-  AddTransition(from_state, to_state, transition_symbol);
+  transitions_[from_state].emplace(transition_symbol, to_state);
 }
 
 bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) {
@@ -185,7 +185,7 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
   return determinized_automaton;
 }
 
-regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
+regex::Regex NondeterministicAutomaton::ToRegex() const {
   auto state_number = GetStateNumber();
   auto regex_transitions = std::vector(state_number, std::vector<regex::RegexPtr>(state_number, regex::create<regex::None>()));
   ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
@@ -224,7 +224,15 @@ regex::RegexPtr NondeterministicAutomaton::ToRegex() const {
   auto result = initial_to_accepting * regex::Iterate(regex_transitions[*accepting_state][*accepting_state] +
                                         regex_transitions[*accepting_state][initial_state()] *
                                         initial_to_accepting);
-  return result;
+  return {result};
+}
+
+NondeterministicAutomaton NondeterministicAutomaton::FromRegex(const regex::Regex &input) {
+  AutomatonVisitor visitor;
+  input.Visit(visitor);
+  auto automaton = visitor.GetResult();
+  automaton.SetAccepting(automaton.GetStateNumber() - 1);
+  return automaton;
 }
 
 NondeterministicAutomaton AutomatonVisitor::Process(const regex::Literal &regex) {
@@ -241,10 +249,13 @@ NondeterministicAutomaton AutomatonVisitor::Process(const regex::Empty &regex) {
 
 NondeterministicAutomaton AutomatonVisitor::Process(const regex::Concatenation &regex, NondeterministicAutomaton first,
                                                     NondeterministicAutomaton second) {
-  auto result = first;
-  MergeAutomatons(result, second);
-  result.AddTransition(first.GetStateNumber() - 1, first.GetStateNumber(), "");
-  return result;
+  auto offset = first.GetStateNumber();
+  auto first_accepting = first.GetSingleAcceptingState();
+  first.SetAccepting(first_accepting, false);
+  MergeAutomatons(first, second);
+  first.AddTransition(first_accepting, offset, "");
+  first.SetAccepting(offset + second.GetSingleAcceptingState());
+  return first;
 }
 
 NondeterministicAutomaton AutomatonVisitor::Process(const regex::Alteration &regex, NondeterministicAutomaton first,
@@ -257,12 +268,15 @@ NondeterministicAutomaton AutomatonVisitor::Process(const regex::Alteration &reg
   result.AddTransition(0, first.GetStateNumber() + 1, "");
   result.AddTransition(first.GetStateNumber(), accepting, "");
   result.AddTransition(result.GetStateNumber() - 2, accepting, "");
+  result.SetAccepting(accepting);
+  return result;
 }
 
 NondeterministicAutomaton AutomatonVisitor::Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) {
   NondeterministicAutomaton result{1, 0};
   MergeAutomatons(result, inner);
   result.AddTransition(0, 1, "");
-  result.AddTransition(result.GetStateNumber() - 1, 0);
+  result.AddTransition(result.GetStateNumber() - 1, 0, "");
+  result.SetAccepting(0);
   return result;
 }

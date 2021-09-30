@@ -55,6 +55,11 @@ public:
     return is_accepting_[state];
   }
 
+  std::size_t GetSingleAcceptingState() const {
+    assert(std::ranges::count(is_accepting_, true) == 1);
+    return std::ranges::find(is_accepting_, true) - is_accepting_.begin();
+  }
+
   std::size_t AddState(bool final) {
     is_accepting_.push_back(final);
     transitions_.emplace_back();
@@ -149,6 +154,8 @@ public:
   }
 
   void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_string) final {
+    assert(from_state < this->GetStateNumber());
+    assert(to_state < this->GetStateNumber());
     this->transitions_[from_state].emplace_back(std::move(transition_string), to_state);
   }
 
@@ -206,39 +213,43 @@ class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
 public:
   using AbstractAutomaton<std::string>::AbstractAutomaton;
 
+
   NondeterministicAutomaton &SplitTransitions();
 
   NondeterministicAutomaton &RemoveEmptyTransitions();
 
   DeterministicAutomaton Determinize() const;
 
-  regex::RegexPtr ToRegex() const;
+  regex::Regex ToRegex() const;
+
+  static NondeterministicAutomaton FromRegex(const regex::Regex& input);
 };
 
-//class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {
-//public:
-//  NondeterministicAutomaton Process(const regex::None &regex) override;
-////
-////  NondeterministicAutomaton Process(const regex::Empty &regex) override;
-////
-////  NondeterministicAutomaton Process(const regex::Concatenation &regex, NondeterministicAutomaton first,
-////                                    NondeterministicAutomaton second) override;
-////
-////  NondeterministicAutomaton Process(const regex::Literal &regex) override;
-////
-////  NondeterministicAutomaton
-////  Process(const regex::Alteration &regex, NondeterministicAutomaton first, NondeterministicAutomaton second) override;
-////
-////  NondeterministicAutomaton Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) override;
-//
-//private:
-//  void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
-//    for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
-//      first.AddState();
-//    second.ForEachTransition([&first](auto from_state, auto to_state, const auto &transition_string) {
-//      first.AddTransition(from_state + first.GetStateNumber(), to_state + first.GetStateNumber(), transition_string);
-//    });
-//  }
-//};
+class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {
+public:
+  NondeterministicAutomaton Process(const regex::None &regex) override;
+
+  NondeterministicAutomaton Process(const regex::Empty &regex) override;
+
+  NondeterministicAutomaton Process(const regex::Concatenation &regex, NondeterministicAutomaton first,
+                                    NondeterministicAutomaton second) override;
+
+  NondeterministicAutomaton Process(const regex::Literal &regex) override;
+
+  NondeterministicAutomaton
+  Process(const regex::Alteration &regex, NondeterministicAutomaton first, NondeterministicAutomaton second) override;
+
+  NondeterministicAutomaton Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) override;
+
+private:
+  void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
+    auto offset = first.GetStateNumber();
+    for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
+      first.AddState();
+    second.ForEachTransition([&first, offset](auto from_state, auto to_state, const auto &transition_string) {
+      first.AddTransition(from_state + offset, to_state + offset, transition_string);
+    });
+  }
+};
 
 #endif //AUTOMATA_AUTOMATON_H

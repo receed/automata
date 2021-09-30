@@ -76,7 +76,7 @@ namespace regex {
     return first = std::move(first) + std::move(second);
   }
 
-  RegexPtr parse(const std::string &input) {
+  Regex Parse(const std::string &input) {
     using Token = std::variant<RegexPtr, char>;
     std::vector<Token> stack;
     auto reduce_sum = [&stack]() {
@@ -117,14 +117,17 @@ namespace regex {
         stack.emplace_back(symbol);
         continue;
       }
-      if (symbol == '(') {
+      if (symbol == '(')
         stack.emplace_back(symbol);
-        continue;
-      }
-      stack.emplace_back(create<regex::Literal>(symbol));
+      else if (symbol == '0')
+        stack.emplace_back(create<None>());
+      else if (symbol == '1')
+        stack.emplace_back(create<Empty>());
+      else
+        stack.emplace_back(create<regex::Literal>(symbol));
     }
     assert(stack.size() == 1);
-    return std::get<RegexPtr>(stack[0]);
+    return Regex(std::get<RegexPtr>(stack[0]));
   }
 
   template<>

@@ -61,12 +61,6 @@ namespace regex {
 
     virtual ~RegexNode() = default;
 
-    std::string ToString() const {
-      std::ostringstream os;
-      Print(os);
-      return os.str();
-    }
-
     virtual void Print(std::ostream &os) const = 0;
 
     virtual bool IsNone() {
@@ -115,9 +109,9 @@ namespace regex {
 
   class Regex {
   public:
-    RegexPtr root_node_;
+    Regex(RegexPtr root_node) : root_node_(root_node) {}
 
-    void Visit(Visitor &visitor) {
+    void Visit(Visitor &visitor) const {
       std::stack<std::pair<RegexPtr, bool>> stack;
       root_node_->Enter(visitor);
       stack.push({root_node_, false});
@@ -134,6 +128,19 @@ namespace regex {
         }
       }
     }
+
+    void Print(std::ostream &os) const {
+      root_node_->Print(os);
+    }
+
+    std::string ToString() const {
+      std::ostringstream os;
+      Print(os);
+      return os.str();
+    }
+
+  private:
+    RegexPtr root_node_;
   };
 
   struct None : public BaseRegex<None, 0> {
@@ -194,7 +201,7 @@ namespace regex {
 
   RegexPtr &operator*=(RegexPtr &first, RegexPtr second);
 
-  RegexPtr parse(const std::string &input);
+  Regex Parse(const std::string &input);
 
   template<typename T, typename... Args>
   RegexPtr create(Args &&... args) {
@@ -207,59 +214,60 @@ namespace regex {
   template<>
   RegexPtr create<Empty>();
 
-  template<int... Is>
-  struct seq {
-  };
-
-  template<int N, int... Is>
-  struct gen_seq : gen_seq<N - 1, N - 1, Is...> {
-  };
-
-  template<int... Is>
-  struct gen_seq<0, Is...> : seq<Is...> {
-  };
-
   template<typename T>
-  class AbstractVisitor : protected Visitor {
+  class AbstractVisitor : public Visitor {
   public:
-    virtual T Process(const Literal &regex) = 0;
-    virtual T Process(const None &regex) = 0;
-    virtual T Process(const Empty &regex) = 0;
-    virtual T Process(const Literal &regex) = 0;
-    virtual T Process(const Concatenation &regex, T first, T second) = 0;
-    virtual T Process(const Alteration &regex, T first, T second) = 0;
-    virtual T Process(const KleeneStar &regex, T inner) = 0;
-
-    template<typename R, std::size_t ChildrenCount, int... Is, seq<Is...> s = gen_seq<ChildrenCount>(), typename... Args>
-    T Process(const R &regex)requires std::is_base_of_v<BaseRegex<R, ChildrenCount>, R> {
-      return Process(regex, stack_[stack_.size() - ChildrenCount + Is]...);
+    T GetResult() {
+      return stack_.back();
     }
 
-    void Exit(const Literal &regex) override {
-      Process(regex);
+    virtual T Process(const None &regex) = 0;
+
+    virtual T Process(const Empty &regex) = 0;
+
+    virtual T Process(const Literal &regex) = 0;
+
+    virtual T Process(const Concatenation &regex, T first, T second) = 0;
+
+    virtual T Process(const Alteration &regex, T first, T second) = 0;
+
+    virtual T Process(const KleeneStar &regex, T inner) = 0;
+
+    template<typename R, std::size_t ChildrenCount, std::size_t... Indices>
+    void ProcessImpl2(const BaseRegex<R, ChildrenCount> &regex, std::index_sequence<Indices...>) {
+      auto result = Process(static_cast<const R&>(regex), stack_[stack_.size() - ChildrenCount + Indices]...);
+      stack_.resize(stack_.size() - ChildrenCount);
+      stack_.push_back(std::move(result));
+    }
+
+    template<typename R, std::size_t ChildrenCount>
+    void ProcessImpl(const BaseRegex<R, ChildrenCount> &regex) {
+      return ProcessImpl2<R, ChildrenCount>(regex, std::make_index_sequence<ChildrenCount>());
     }
 
     void Exit(const Empty &regex) override {
-      Process(regex);
+      ProcessImpl(regex);
     }
 
     void Exit(const None &regex) override {
-      Process(regex);
+      ProcessImpl(regex);
+    }
+
+    void Exit(const Literal &regex) override {
+      ProcessImpl(regex);
     }
 
     void Exit(const Alteration &regex)
     override {
-      Process(regex);
+      ProcessImpl(regex);
     }
 
-    void Exit(const Concatenation &regex)
-    override {
-      Process(regex);
+    void Exit(const Concatenation &regex) override {
+      ProcessImpl(regex);
     }
 
-    void Exit(const KleeneStar &regex)
-    override {
-      Process(regex);
+    void Exit(const KleeneStar &regex) override {
+      ProcessImpl(regex);
     }
 
   private:

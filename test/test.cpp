@@ -83,21 +83,22 @@ TEST_CASE("Complement") {
 TEST_SUITE("Build regular expression") {
   TEST_CASE("No cycles") {
     CHECK_EQ(
-        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex()->ToString(),
+        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex().ToString(),
         "(a+b)c"
     );
   }
 
   TEST_CASE("Length 1 modulo 3") {
     CHECK_EQ(
-        NondeterministicAutomaton{3, 0, {1}, {{0, 1, "a"}, {1, 2, "a"}, {2, 0, "a"}}}.ToRegex()->ToString(),
+        NondeterministicAutomaton{3, 0, {1}, {{0, 1, "a"}, {1, 2, "a"}, {2, 0, "a"}}}.ToRegex().ToString(),
         "a(aaa)*"
     );
   }
 
   TEST_CASE("Long regex") {
     CHECK_EQ(
-        NondeterministicAutomaton{4, 1, {2}, {{1, 0, "a"}, {0, 3, "a"}, {0, 2, "b"}, {3, 2, "a"}, {3, 1, "b"}, {2, 1, "a"}}}.ToRegex()->ToString(),
+        NondeterministicAutomaton{4, 1, {2}, {{1, 0, "a"}, {0, 3, "a"}, {0, 2, "b"}, {3, 2, "a"}, {3, 1, "b"},
+                                              {2, 1, "a"}}}.ToRegex().ToString(),
         "(aab)*(ab+aaa)(a(aab)*(ab+aaa))*"
     );
   }
@@ -106,52 +107,110 @@ TEST_SUITE("Build regular expression") {
 TEST_SUITE("Minimization") {
   TEST_CASE("Identical vertices") {
     CHECK_EQ(
-        DeterministicAutomaton{5, 0, {3}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 3, 'a'}, {1, 4, 'b'}, {2, 3, 'a'}, {2, 4, 'b'}, {3, 4, 'a'}, {3, 4, 'b'}, {4, 4, 'a'}, {4, 4, 'b'}}}.Minimize(),
-        DeterministicAutomaton{4, 0, {2}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+        DeterministicAutomaton{5, 0, {3}, {{0, 1, 'a'}, {0, 2, 'b'}, {1, 3, 'a'}, {1, 4, 'b'}, {2, 3, 'a'}, {2, 4, 'b'},
+                                           {3, 4, 'a'}, {3, 4, 'b'}, {4, 4, 'a'}, {4, 4, 'b'}}}.Minimize(),
+        DeterministicAutomaton{4, 0, {2}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 3, 'a'}, {2, 3, 'b'},
+                                           {3, 3, 'a'}, {3, 3, 'b'}}}
     );
   }
 
   TEST_CASE("Identical groups") {
     CHECK_EQ(
-        DeterministicAutomaton{6, 0, {1, 3}, {{0, 1, 'a'}, {0, 3, 'b'}, {1, 2, 'a'}, {1, 5, 'b'}, {2, 1, 'a'}, {2, 5, 'b'}, {3, 4, 'a'}, {3, 5, 'b'}, {4, 3, 'a'}, {4, 5, 'b'}, {5, 5, 'a'}, {5, 5, 'b'}}}.Minimize(),
-        DeterministicAutomaton{4, 0, {1}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 1, 'a'}, {2, 3, 'b'}, {3, 3, 'a'}, {3, 3, 'b'}}}
+        DeterministicAutomaton{6, 0, {1, 3},
+                               {{0, 1, 'a'}, {0, 3, 'b'}, {1, 2, 'a'}, {1, 5, 'b'}, {2, 1, 'a'}, {2, 5, 'b'},
+                                {3, 4, 'a'}, {3, 5, 'b'}, {4, 3, 'a'}, {4, 5, 'b'}, {5, 5, 'a'},
+                                {5, 5, 'b'}}}.Minimize(),
+        DeterministicAutomaton{4, 0, {1}, {{0, 1, 'a'}, {0, 1, 'b'}, {1, 2, 'a'}, {1, 3, 'b'}, {2, 1, 'a'}, {2, 3, 'b'},
+                                           {3, 3, 'a'}, {3, 3, 'b'}}}
     );
   }
 
   TEST_CASE("Unreachable state") {
     CHECK_EQ(
-      DeterministicAutomaton{3, 0, {2}, {{0, 0, 'a'}, {0, 2, 'b'}, {1, 0, 'a'}, {1, 2, 'b'}, {2, 2, 'a'}, {2, 2, 'b'}}}.Minimize(),
-      DeterministicAutomaton{2, 0, {1}, {{0, 0, 'a'}, {0, 1, 'b'}, {1, 1, 'a'}, {1, 1, 'b'}}}
+        DeterministicAutomaton{3, 0, {2}, {{0, 0, 'a'}, {0, 2, 'b'}, {1, 0, 'a'}, {1, 2, 'b'}, {2, 2, 'a'},
+                                           {2, 2, 'b'}}}.Minimize(),
+        DeterministicAutomaton{2, 0, {1}, {{0, 0, 'a'}, {0, 1, 'b'}, {1, 1, 'a'}, {1, 1, 'b'}}}
     );
   }
 }
 
 using namespace regex;
 
-void CheckPrintAndParse(const RegexPtr &regex, const std::string &representation) {
-  CHECK_EQ(regex->ToString(), representation);
-  CHECK_EQ(regex::parse(representation)->ToString(), representation);
+void CheckPrintAndParse(const Regex &regex, const std::string &representation) {
+  CHECK_EQ(regex.ToString(), representation);
+  CHECK_EQ(regex::Parse(representation).ToString(), representation);
 }
 
-TEST_SUITE("Print and parse regex") {
+TEST_SUITE("Print and Parse regex") {
+  TEST_CASE("Empty set") {
+    CheckPrintAndParse(Regex(create<None>()), "0");
+  }
+
+  TEST_CASE("Empty string") {
+    CheckPrintAndParse(Regex(create<Empty>()), "1");
+  }
 
   TEST_CASE("Simple string") {
-    CheckPrintAndParse(CreateLiteral('a') * CreateLiteral('b') * CreateLiteral('c'), "abc");
+    CheckPrintAndParse(Regex(CreateLiteral('a') * CreateLiteral('b') * CreateLiteral('c')), "abc");
   }
 
   TEST_CASE("Alteration") {
-    CheckPrintAndParse(CreateLiteral('a') + CreateLiteral('b') + CreateLiteral('c'), "a+b+c");
+    CheckPrintAndParse(Regex(CreateLiteral('a') + CreateLiteral('b') + CreateLiteral('c')), "a+b+c");
   }
 
   TEST_CASE("Kleene star") {
-    CheckPrintAndParse(Iterate(CreateLiteral('a')), "a*");
+    CheckPrintAndParse(Regex(Iterate(CreateLiteral('a'))), "a*");
   }
 
   TEST_CASE("Regex without parentheses") {
-    CheckPrintAndParse(CreateLiteral('c') + Iterate(CreateLiteral('a')) * CreateLiteral('b'), "c+a*b");
+    CheckPrintAndParse(Regex(CreateLiteral('c') + Iterate(CreateLiteral('a')) * CreateLiteral('b')), "c+a*b");
   }
 
   TEST_CASE("Regex with parentheses") {
-    CheckPrintAndParse(Iterate((CreateLiteral('c') + CreateLiteral('a')) * CreateLiteral('b')), "((c+a)b)*");
+    CheckPrintAndParse(Regex(Iterate((CreateLiteral('c') + CreateLiteral('a')) * CreateLiteral('b'))), "((c+a)b)*");
+  }
+}
+
+TEST_SUITE("Print and Parse regex") {
+  TEST_CASE("Empty set") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("0")),
+        NondeterministicAutomaton{2, 0, {1}, {}}
+    );
+  }
+
+  TEST_CASE("Empty string") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("1")),
+        NondeterministicAutomaton{2, 0, {1}, {{0, 1, ""}}}
+    );
+  }
+
+  TEST_CASE("Single symbol") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("a")),
+        NondeterministicAutomaton{2, 0, {1}, {{0, 1, "a"}}}
+    );
+  }
+
+  TEST_CASE("Concatenation") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("ab")),
+        NondeterministicAutomaton{4, 0, {3}, {{0, 1, "a"}, {1, 2, ""}, {2, 3, "b"}}}
+    );
+  }
+
+  TEST_CASE("Alteration") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("a+b")),
+        NondeterministicAutomaton{6, 0, {5}, {{0, 1, ""}, {0, 3, ""}, {1, 2, "a"}, {3, 4, "b"}, {2, 5, ""}, {4, 5, ""}}}
+    );
+  }
+
+  TEST_CASE("Compound regex") {
+    CHECK_EQ(
+        NondeterministicAutomaton::FromRegex(regex::Parse("a*+b")),
+        NondeterministicAutomaton{7, 0, {6}, {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {2, 3, "a"}, {3, 1, ""}, {3, 6, ""}, {4, 5, "b"}, {5, 6, ""}}}
+    );
   }
 }
