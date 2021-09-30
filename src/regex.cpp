@@ -2,9 +2,11 @@
 #include <string>
 #include <cassert>
 #include <vector>
+#include <variant>
+
 
 namespace regex {
-  void Regex::Print(std::size_t outer_priority, std::ostream &os) const {
+  void RegexNode::Print(std::size_t outer_priority, std::ostream &os) const {
     if (outer_priority > priority_)
       os << "(";
     Print(os);
@@ -25,18 +27,18 @@ namespace regex {
   }
 
   void Concatenation::Print(std::ostream &os) const {
-    first->Print(priority_, os);
-    second->Print(priority_, os);
+    GetChild(0).Print(priority_, os);
+    GetChild(1).Print(priority_, os);
   }
 
   void Alteration::Print(std::ostream &os) const {
-    first->Print(priority_, os);
+    GetChild(0).Print(priority_, os);
     os << '+';
-    second->Print(priority_, os);
+    GetChild(1).Print(priority_, os);
   }
 
   void KleeneStar::Print(std::ostream &os) const {
-    inner->Print(priority_, os);
+    GetChild(0).Print(priority_, os);
     os << '*';
   }
 

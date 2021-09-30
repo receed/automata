@@ -215,4 +215,30 @@ public:
   regex::RegexPtr ToRegex() const;
 };
 
+//class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {
+//public:
+//  NondeterministicAutomaton Process(const regex::None &regex) override;
+////
+////  NondeterministicAutomaton Process(const regex::Empty &regex) override;
+////
+////  NondeterministicAutomaton Process(const regex::Concatenation &regex, NondeterministicAutomaton first,
+////                                    NondeterministicAutomaton second) override;
+////
+////  NondeterministicAutomaton Process(const regex::Literal &regex) override;
+////
+////  NondeterministicAutomaton
+////  Process(const regex::Alteration &regex, NondeterministicAutomaton first, NondeterministicAutomaton second) override;
+////
+////  NondeterministicAutomaton Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) override;
+//
+//private:
+//  void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
+//    for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
+//      first.AddState();
+//    second.ForEachTransition([&first](auto from_state, auto to_state, const auto &transition_string) {
+//      first.AddTransition(from_state + first.GetStateNumber(), to_state + first.GetStateNumber(), transition_string);
+//    });
+//  }
+//};
+
 #endif //AUTOMATA_AUTOMATON_H
