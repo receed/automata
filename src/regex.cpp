@@ -3,6 +3,7 @@
 #include <cassert>
 #include <vector>
 #include <variant>
+#include <regex.h>
 
 
 namespace regex {
@@ -42,49 +43,15 @@ namespace regex {
     os << '*';
   }
 
-  RegexPtr CreateLiteral(char symbol) {
-    return create<Literal>(symbol);
-  }
-
-  RegexPtr Iterate(RegexPtr inner) {
-    if (inner->IsNone() || inner->IsEmpty())
-      return create<Empty>();
-    return create<KleeneStar>(std::move(inner));
-  }
-
-  RegexPtr operator*(RegexPtr first, RegexPtr second) {
-    if (first->IsNone() || second->IsEmpty())
-      return std::move(first);
-    if (second->IsNone() || first->IsEmpty())
-      return std::move(second);
-    return create<Concatenation>(std::move(first), std::move(second));
-  }
-
-  RegexPtr &operator*=(RegexPtr &first, RegexPtr second) {
-    return first = std::move(first) * std::move(second);
-  }
-
-  RegexPtr operator+(RegexPtr first, RegexPtr second) {
-    if (first->IsNone())
-      return std::move(second);
-    if (second->IsNone())
-      return std::move(first);
-    return create<Alteration>(std::move(first), std::move(second));
-  }
-
-  RegexPtr &operator+=(RegexPtr &first, RegexPtr second) {
-    return first = std::move(first) + std::move(second);
-  }
-
   Regex Parse(const std::string &input) {
-    using Token = std::variant<RegexPtr, char>;
+    using Token = std::variant<Regex, char>;
     std::vector<Token> stack;
     auto reduce_sum = [&stack]() {
       if (stack.size() < 3)
         return;
-      auto first = std::get_if<regex::RegexPtr>(&stack[stack.size() - 3]);
+      auto first = std::get_if<regex::Regex>(&stack[stack.size() - 3]);
       auto plus = std::get_if<char>(&stack[stack.size() - 2]);
-      auto second = std::get_if<regex::RegexPtr>(&stack.back());
+      auto second = std::get_if<regex::Regex>(&stack.back());
       if (first && plus && second && *plus == '+') {
         auto alteration = std::move(*first) + std::move(*second);
         stack.pop_back();
@@ -94,13 +61,13 @@ namespace regex {
     };
     for (char symbol: "(" + input + ")") {
       if (symbol == '*') {
-        assert(!stack.empty() && std::holds_alternative<RegexPtr>(stack.back()));
-        stack.back() = regex::Iterate(std::get<RegexPtr>(stack.back()));
+        assert(!stack.empty() && std::holds_alternative<Regex>(stack.back()));
+        stack.back() = std::get<Regex>(stack.back()).Iterate();
         continue;
       }
-      if (stack.size() >= 2 && std::holds_alternative<RegexPtr>(stack.back()) &&
-          std::holds_alternative<RegexPtr>(stack[stack.size() - 2])) {
-        std::get<RegexPtr>(stack[stack.size() - 2]) *= std::get<RegexPtr>(stack.back());
+      if (stack.size() >= 2 && std::holds_alternative<Regex>(stack.back()) &&
+          std::holds_alternative<Regex>(stack[stack.size() - 2])) {
+        std::get<Regex>(stack[stack.size() - 2]) *= std::get<Regex>(stack.back());
         stack.pop_back();
       }
       if (symbol == ')') {
@@ -120,25 +87,55 @@ namespace regex {
       if (symbol == '(')
         stack.emplace_back(symbol);
       else if (symbol == '0')
-        stack.emplace_back(create<None>());
+        stack.emplace_back(Create<None>());
       else if (symbol == '1')
-        stack.emplace_back(create<Empty>());
+        stack.emplace_back(Create<Empty>());
       else
-        stack.emplace_back(create<regex::Literal>(symbol));
+        stack.emplace_back(Create<regex::Literal>(symbol));
     }
     assert(stack.size() == 1);
-    return Regex(std::get<RegexPtr>(stack[0]));
+    return std::get<Regex>(stack[0]);
   }
 
   template<>
-  RegexPtr create<Empty>() {
-    static auto regex = std::make_shared<Empty>();
+  Regex Create<Empty>() {
+    static auto regex = Regex(std::make_shared<Empty>());
     return regex;
   }
 
   template<>
-  RegexPtr create<None>() {
-    static auto regex = std::make_shared<None>();
+  Regex Create<None>() {
+    static auto regex = Regex(std::make_shared<None>());
     return regex;
+  }
+
+  Regex regex::Regex::Iterate() {
+    if (root_node_->IsNone() || root_node_->IsEmpty())
+      return Create<Empty>();
+    return Create<KleeneStar>(root_node_);
+  }
+
+  Regex regex::Regex::operator+(const Regex &other) {
+    if (other.root_node_->IsNone())
+      return *this;
+    if (root_node_->IsNone())
+      return other;
+    return Create<Alteration>(root_node_, other.root_node_);
+  }
+
+  Regex &regex::Regex::operator+=(const Regex &other) {
+    return *this = *this + other;
+  }
+
+  Regex regex::Regex::operator*(const Regex &other) {
+    if (root_node_->IsNone() || other.root_node_->IsEmpty())
+      return *this;
+    if (other.root_node_->IsNone() || root_node_->IsEmpty())
+      return other;
+    return Create<Concatenation>(root_node_, other.root_node_);
+  }
+
+  Regex &regex::Regex::operator*=(const Regex &other) {
+    return *this = *this * other;
   }
 }

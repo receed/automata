@@ -80,7 +80,14 @@ TEST_CASE("Complement") {
   );
 }
 
-TEST_SUITE("Build regular expression") {
+TEST_SUITE("Build regular expression by automaton") {
+  TEST_CASE("Single letter") {
+    CHECK_EQ(
+        NondeterministicAutomaton{2, 0, {1}, {{0, 1, "a"}}}.ToRegex().ToString(),
+        "a"
+    );
+  }
+
   TEST_CASE("No cycles") {
     CHECK_EQ(
         NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {0, 1, "b"}, {1, 2, "c"}}}.ToRegex().ToString(),
@@ -143,31 +150,31 @@ void CheckPrintAndParse(const Regex &regex, const std::string &representation) {
 
 TEST_SUITE("Print and Parse regex") {
   TEST_CASE("Empty set") {
-    CheckPrintAndParse(Regex(create<None>()), "0");
+    CheckPrintAndParse(Create<None>(), "0");
   }
 
   TEST_CASE("Empty string") {
-    CheckPrintAndParse(Regex(create<Empty>()), "1");
+    CheckPrintAndParse(Create<Empty>(), "1");
   }
 
   TEST_CASE("Simple string") {
-    CheckPrintAndParse(Regex(CreateLiteral('a') * CreateLiteral('b') * CreateLiteral('c')), "abc");
+    CheckPrintAndParse(Create<Literal>('a') * Create<Literal>('b') * Create<Literal>('c'), "abc");
   }
 
   TEST_CASE("Alteration") {
-    CheckPrintAndParse(Regex(CreateLiteral('a') + CreateLiteral('b') + CreateLiteral('c')), "a+b+c");
+    CheckPrintAndParse(Create<Literal>('a') + Create<Literal>('b') + Create<Literal>('c'), "a+b+c");
   }
 
   TEST_CASE("Kleene star") {
-    CheckPrintAndParse(Regex(Iterate(CreateLiteral('a'))), "a*");
+    CheckPrintAndParse(Create<Literal>('a').Iterate(), "a*");
   }
 
   TEST_CASE("Regex without parentheses") {
-    CheckPrintAndParse(Regex(CreateLiteral('c') + Iterate(CreateLiteral('a')) * CreateLiteral('b')), "c+a*b");
+    CheckPrintAndParse(Create<Literal>('c') + Create<Literal>('a').Iterate() * Create<Literal>('b'), "c+a*b");
   }
 
   TEST_CASE("Regex with parentheses") {
-    CheckPrintAndParse(Regex(Iterate((CreateLiteral('c') + CreateLiteral('a')) * CreateLiteral('b'))), "((c+a)b)*");
+    CheckPrintAndParse(((Create<Literal>('c') + Create<Literal>('a')) * Create<Literal>('b')).Iterate(), "((c+a)b)*");
   }
 }
 
@@ -210,7 +217,9 @@ TEST_SUITE("Print and Parse regex") {
   TEST_CASE("Compound regex") {
     CHECK_EQ(
         NondeterministicAutomaton::FromRegex(regex::Parse("a*+b")),
-        NondeterministicAutomaton{7, 0, {6}, {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {2, 3, "a"}, {3, 1, ""}, {3, 6, ""}, {4, 5, "b"}, {5, 6, ""}}}
+        NondeterministicAutomaton{7, 0, {6},
+                                  {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {2, 3, "a"}, {3, 1, ""}, {3, 6, ""}, {4, 5, "b"},
+                                   {5, 6, ""}}}
     );
   }
 }

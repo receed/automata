@@ -69,7 +69,7 @@ DeterministicAutomaton DeterministicAutomaton::Minimize() const {
     for (std::size_t state = 0; state < GetStateNumber(); ++state) {
       assert(GetTransitions(state).size() == GetTransitions(0).size());
       std::vector<std::size_t> new_class{class_indexes[state]};
-      for (auto [transition_symbol, to_state] : GetTransitions(state))
+      for (auto[transition_symbol, to_state]: GetTransitions(state))
         new_class.push_back(class_indexes[to_state]);
       auto it = index_of_class.find(new_class);
       if (it != index_of_class.end())
@@ -187,10 +187,11 @@ DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
 
 regex::Regex NondeterministicAutomaton::ToRegex() const {
   auto state_number = GetStateNumber();
-  auto regex_transitions = std::vector(state_number, std::vector<regex::RegexPtr>(state_number, regex::create<regex::None>()));
+  auto regex_transitions = std::vector(state_number, std::vector<regex::Regex>(state_number,
+                                                                               regex::Create<regex::None>()));
   ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
-    for (char symbol : transition_string)
-      regex_transitions[from_state][to_state] += regex::create<regex::Literal>(symbol);
+    for (char symbol: transition_string)
+      regex_transitions[from_state][to_state] += regex::Create<regex::Literal>(symbol);
   });
 
   std::optional<std::size_t> accepting_state;
@@ -208,23 +209,23 @@ regex::Regex NondeterministicAutomaton::ToRegex() const {
           continue;
         auto shortcut_regex =
             regex_transitions[from_state][state] *
-            regex::Iterate(regex_transitions[state][state]) *
+            regex_transitions[state][state].Iterate() *
             regex_transitions[state][to_state];
         regex_transitions[from_state][to_state] += shortcut_regex;
       }
     for (std::size_t other_state = 0; other_state < state_number; ++other_state)
-      regex_transitions[other_state][state] = regex_transitions[state][other_state] = regex::create<regex::None>();
+      regex_transitions[other_state][state] = regex_transitions[state][other_state] = regex::Create<regex::None>();
   }
   if (!accepting_state)
-    return regex::create<regex::None>();
+    return regex::Create<regex::None>();
   if (initial_state() == *accepting_state)
-    return regex::Iterate(regex_transitions[initial_state()][initial_state()]);
+    return regex_transitions[initial_state()][initial_state()].Iterate();
   auto initial_to_accepting =
-      regex::Iterate(regex_transitions[initial_state()][initial_state()]) * regex_transitions[initial_state()][*accepting_state];
-  auto result = initial_to_accepting * regex::Iterate(regex_transitions[*accepting_state][*accepting_state] +
-                                        regex_transitions[*accepting_state][initial_state()] *
-                                        initial_to_accepting);
-  return {result};
+      regex_transitions[initial_state()][initial_state()].Iterate() *
+      regex_transitions[initial_state()][*accepting_state];
+  return initial_to_accepting * (regex_transitions[*accepting_state][*accepting_state] +
+                                 regex_transitions[*accepting_state][initial_state()] *
+                                 initial_to_accepting).Iterate();
 }
 
 NondeterministicAutomaton NondeterministicAutomaton::FromRegex(const regex::Regex &input) {

@@ -106,7 +106,7 @@ protected:
     while (!to_process.empty()) {
       auto state = to_process.top();
       to_process.pop();
-      for (const auto &[transition, to_state] : GetTransitions(state))
+      for (const auto &[transition, to_state]: GetTransitions(state))
         if (!is_reachable[to_state]) {
           is_reachable[to_state] = true;
           to_process.push(to_state);
@@ -222,7 +222,7 @@ public:
 
   regex::Regex ToRegex() const;
 
-  static NondeterministicAutomaton FromRegex(const regex::Regex& input);
+  static NondeterministicAutomaton FromRegex(const regex::Regex &input);
 };
 
 class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {
@@ -242,7 +242,7 @@ public:
   NondeterministicAutomaton Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) override;
 
 private:
-  void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
+  static void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
     auto offset = first.GetStateNumber();
     for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
       first.AddState();

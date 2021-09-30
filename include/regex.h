@@ -129,6 +129,16 @@ namespace regex {
       }
     }
 
+    Regex Iterate();
+
+    Regex operator+(const Regex &other);
+
+    Regex &operator+=(const Regex &other);
+
+    Regex operator*(const Regex &other);
+
+    Regex &operator*=(const Regex &other);
+
     void Print(std::ostream &os) const {
       root_node_->Print(os);
     }
@@ -189,30 +199,18 @@ namespace regex {
     void Print(std::ostream &os) const override;
   };
 
-  RegexPtr CreateLiteral(char symbol);
-
-  RegexPtr Iterate(RegexPtr inner);
-
-  RegexPtr operator+(RegexPtr first, RegexPtr second);
-
-  RegexPtr &operator+=(RegexPtr &first, RegexPtr second);
-
-  RegexPtr operator*(RegexPtr first, RegexPtr second);
-
-  RegexPtr &operator*=(RegexPtr &first, RegexPtr second);
-
   Regex Parse(const std::string &input);
 
   template<typename T, typename... Args>
-  RegexPtr create(Args &&... args) {
-    return std::make_shared<T>(std::forward<Args>(args)...);
+  Regex Create(Args &&... args) {
+    return {std::make_shared<T>(std::forward<Args>(args)...)};
   }
 
   template<>
-  RegexPtr create<None>();
+  Regex Create<None>();
 
   template<>
-  RegexPtr create<Empty>();
+  Regex Create<Empty>();
 
   template<typename T>
   class AbstractVisitor : public Visitor {
@@ -235,7 +233,7 @@ namespace regex {
 
     template<typename R, std::size_t ChildrenCount, std::size_t... Indices>
     void ProcessImpl2(const BaseRegex<R, ChildrenCount> &regex, std::index_sequence<Indices...>) {
-      auto result = Process(static_cast<const R&>(regex), stack_[stack_.size() - ChildrenCount + Indices]...);
+      auto result = Process(static_cast<const R &>(regex), stack_[stack_.size() - ChildrenCount + Indices]...);
       stack_.resize(stack_.size() - ChildrenCount);
       stack_.push_back(std::move(result));
     }
