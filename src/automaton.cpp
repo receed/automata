@@ -57,18 +57,17 @@ namespace automata {
 
   DeterministicAutomaton DeterministicAutomaton::Minimize() const {
     std::vector<std::size_t> class_indexes(GetStateNumber());
-    std::size_t class_number = 0;
+    std::size_t class_number;
     auto reachable_states = GetReachableStates();
     for (std::size_t state = 0; state < GetStateNumber(); ++state)
-      if (IsAccepting(state) != IsAccepting(0)) {
-        class_number = 1;
+      if (IsAccepting(state) != IsAccepting(0))
         class_indexes[state] = 1;
-      }
     while (true) {
       std::vector<std::size_t> new_class_indexes(GetStateNumber());
       std::map<std::vector<std::size_t>, std::size_t> index_of_class;
       for (std::size_t state = 0; state < GetStateNumber(); ++state) {
-        assert(GetTransitions(state).size() == GetTransitions(0).size());
+        if (GetTransitions(state).size() != GetTransitions(0).size())
+          throw BadAutomatonException("The given DFA is not complete");
         std::vector<std::size_t> new_class{class_indexes[state]};
         for (auto[transition_symbol, to_state]: GetTransitions(state))
           new_class.push_back(class_indexes[to_state]);
@@ -92,6 +91,27 @@ namespace automata {
       minimized_automaton.AddTransition(class_indexes[from_state], class_indexes[to_state], transition_symbol);
     });
     return minimized_automaton;
+  }
+
+  DeterministicAutomaton DeterministicAutomaton::Intersection(const DeterministicAutomaton &other) const {
+    auto get_index = [step = other.GetStateNumber()](std::size_t this_state, std::size_t other_state) {
+      return this_state * step + other_state;
+    };
+    DeterministicAutomaton result{GetStateNumber() * other.GetStateNumber(),
+                                  get_index(initial_state(), other.initial_state())};
+    for (std::size_t this_from_state = 0; this_from_state < GetStateNumber(); ++this_from_state)
+      for (std::size_t other_from_state = 0; other_from_state < GetStateNumber(); ++other_from_state) {
+        auto new_state = get_index(this_from_state, other_from_state);
+        if (IsAccepting(this_from_state) && other.IsAccepting(other_from_state))
+          result.SetAccepting(new_state);
+        const auto &other_transitions = other.GetTransitions(other_from_state);
+        for (auto[symbol, this_to_state]: GetTransitions(this_from_state)) {
+          auto it = other_transitions.find(symbol);
+          if (it != other_transitions.end())
+            result.AddTransition(new_state, get_index(this_to_state, it->second), symbol);
+        }
+      }
+    return result;
   }
 
 
@@ -166,7 +186,8 @@ namespace automata {
         if (IsAccepting(state))
           determinized_automaton.SetAccepting(current_subset_index);
         for (auto[transition_string, to_state]: GetTransitions(state)) {
-          assert(transition_string.size() == 1);
+          if (transition_string.size() != 1)
+            throw BadAutomatonException("Transition is not single-letter");
           auto symbol = transition_string[0];
           if (!subset_transitions.count(symbol))
             subset_transitions[symbol] = std::vector<bool>(GetStateNumber());
@@ -208,7 +229,8 @@ namespace automata {
     auto regex_transitions = std::vector(state_number, std::vector<regex::Regex>(state_number,
                                                                                  regex::Create<regex::None>()));
     ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
-      assert(transition_string.size() < 2);
+      if (transition_string.size() >= 2)
+        throw BadAutomatonException("Length of transition string should be 0 or 1");
       if (transition_string.empty())
         regex_transitions[from_state][to_state] += regex::Create<regex::Empty>();
       else
@@ -220,7 +242,8 @@ namespace automata {
       if (state == initial_state())
         continue;
       if (IsAccepting(state)) {
-        assert(!accepting_state);
+        if (accepting_state)
+          throw BadAutomatonException("More than one accepting state");
         accepting_state = state;
         continue;
       }
@@ -305,8 +328,13 @@ namespace automata {
     });
   }
 
+  DeterministicAutomaton RegexToMCDFA(const regex::Regex &expression, const std::vector<char> &alphabet) {
+    return NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(
+        alphabet).Minimize();
+  }
+
   regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet) {
-    auto automata = NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(alphabet).Minimize().Complement().ToNondeterministic();
+    auto automata = RegexToMCDFA(expression, alphabet).Complement().ToNondeterministic();
     automata.MakeSingleAcceptingState();
     return automata.ToRegex();
   }

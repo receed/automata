@@ -24,7 +24,8 @@ namespace cli {
         return objects_.at(id);
       else {
         auto object = std::get_if<T>(&objects_.at(id));
-        assert(object);
+        if (!object)
+          throw InvalidInputException("Wrong type of argument");
         return *object;
       }
     }
@@ -212,6 +213,22 @@ namespace cli {
       void Execute() override {
         cli_.AddObject(automata::NondeterministicAutomaton::FromRegex(*object_));
       }
+    };
+
+    class ToMCDFA : public OnObject<regex::Regex> {
+    public:
+      ToMCDFA(CLI &cli, std::istream &args) : OnObject<regex::Regex>(cli, args) {
+        std::string alphabet;
+        args_ >> alphabet;
+        std::ranges::copy(alphabet, std::back_inserter(alphabet_));
+      }
+
+      void Execute() override {
+        cli_.AddObject(automata::RegexToMCDFA(*object_, alphabet_));
+      }
+
+    private:
+      std::vector<char> alphabet_;
     };
 
     template<typename T, typename Q = T>

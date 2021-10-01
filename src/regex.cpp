@@ -1,6 +1,6 @@
 #include "regex.h"
+#include "util.h"
 #include <string>
-#include <cassert>
 #include <vector>
 #include <variant>
 
@@ -59,7 +59,8 @@ namespace regex {
     };
     for (char symbol: "(" + input + ")") {
       if (symbol == '*') {
-        assert(!stack.empty() && std::holds_alternative<Regex>(stack.back()));
+        if (stack.empty() || !std::holds_alternative<Regex>(stack.back()))
+          throw InvalidInputException("No symbol before \"*\"");
         stack.back() = std::get<Regex>(stack.back()).Iterate();
         continue;
       }
@@ -70,9 +71,11 @@ namespace regex {
       }
       if (symbol == ')') {
         reduce_sum();
-        assert(stack.size() >= 2);
+        if (stack.size() < 2)
+          throw InvalidInputException("Invalid parentheses pattern");
         auto parenthesis = std::get_if<char>(&stack[stack.size() - 2]);
-        assert(parenthesis && *parenthesis == '(');
+        if (!parenthesis || *parenthesis != '(')
+          throw InvalidInputException("Invalid parentheses pattern");
         stack[stack.size() - 2] = std::move(stack.back());
         stack.pop_back();
         continue;
@@ -91,7 +94,8 @@ namespace regex {
       else
         stack.emplace_back(Create<regex::Literal>(symbol));
     }
-    assert(stack.size() == 1);
+    if (stack.size() != 1)
+      throw InvalidInputException("Mismatched operators");
     return std::get<Regex>(stack[0]);
   }
 

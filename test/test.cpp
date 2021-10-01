@@ -234,11 +234,10 @@ TEST_SUITE("Print and Parse regex") {
 
 TEST_CASE("Regex complement") {
   auto expression = regex::Regex::Parse("aa");
-  auto automata = NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(
-      {'a', 'b'}).Minimize().Complement().ToNondeterministic();
-  automata.MakeSingleAcceptingState();
-  std::cout << automata;
-  std::cout << automata.ToRegex();
+  CHECK_EQ(
+      automata::RegexComplement(expression, {'a', 'b'}).ToString(),
+      "1+a+(b+ab+aa(a+b))(a+b)*"
+  );
 }
 
 TEST_CASE("Automaton intersection") {

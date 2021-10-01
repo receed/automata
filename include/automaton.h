@@ -1,18 +1,22 @@
 #ifndef AUTOMATA_AUTOMATON_H
 #define AUTOMATA_AUTOMATON_H
 
+#include "regex.h"
+#include "util.h"
 #include <cstddef>
 #include <utility>
 #include <vector>
 #include <ranges>
 #include <map>
-#include <cassert>
 #include <algorithm>
 #include <iostream>
 #include <stack>
-#include "regex.h"
 
 namespace automata {
+  class BadAutomatonException : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+  };
+
   template<typename T>
   class Automaton {
   public:
@@ -30,7 +34,8 @@ namespace automata {
 
     Automaton(std::size_t initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
         initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(std::move(transitions)) {
-      assert(transitions_.size() == is_accepting_.size());
+      if (transitions_.size() != is_accepting_.size())
+        throw BadAutomatonException("Sizes of accepting states and transitions differ");
     }
 
     explicit Automaton(std::size_t state_number = 0, std::size_t initial_state = 0,
@@ -59,7 +64,8 @@ namespace automata {
     }
 
     std::size_t GetSingleAcceptingState() const {
-      assert(std::ranges::count(is_accepting_, true) == 1);
+      if (std::ranges::count(is_accepting_, true) > 1)
+        throw BadAutomatonException("More than 1 accepting state");
       return std::ranges::find(is_accepting_, true) - is_accepting_.begin();
     }
 
@@ -149,20 +155,25 @@ namespace automata {
     std::size_t initial_state;
     is >> state_number >> initial_state;
     T automaton{state_number, initial_state};
-    assert(is.get() == '\n');
+    if (is.get() != '\n')
+      throw InvalidInputException("\\n expected");
     while (is.peek() != '\n') {
       std::size_t state;
       is >> state;
       automaton.SetAccepting(state);
     }
-    assert(is.get() == '\n');
+    if (is.get() != '\n')
+      throw InvalidInputException("\\n expected");
     while (is.peek() != '\n') {
       std::size_t from_state, to_state;
       typename T::TransitionString transition_string;
       is >> from_state >> to_state >> transition_string;
       automaton.AddTransition(from_state, to_state, transition_string);
-      assert(is.get() == '\n');
+      if (is.get() != '\n')
+        throw InvalidInputException("\\n expected");
     }
+    if (is.get() != '\n')
+      throw InvalidInputException("\\n expected");
     return automaton;
   }
 
@@ -180,8 +191,8 @@ namespace automata {
     }
 
     void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_string) final {
-      assert(from_state < this->GetStateNumber());
-      assert(to_state < this->GetStateNumber());
+      if (from_state >= this->GetStateNumber() || to_state >= this->GetStateNumber())
+        throw std::out_of_range("Invalid state index");
       this->transitions_[from_state].emplace_back(std::move(transition_string), to_state);
     }
 
@@ -215,7 +226,6 @@ namespace automata {
     DeterministicAutomaton(std::size_t state_number, std::size_t initial_state,
                            const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
         : Automaton<std::unordered_map<char, std::size_t>>(state_number, initial_state, accepting_states) {
-      static_assert(std::is_same_v<TransitionString, char>);
       for (const auto &[from_state, to_state, transition_string]: transitions)
         AddTransition(from_state, to_state, transition_string);
     }
@@ -236,26 +246,7 @@ namespace automata {
 
     DeterministicAutomaton Minimize() const;
 
-    DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const {
-      auto get_index = [step = other.GetStateNumber()](std::size_t this_state, std::size_t other_state) {
-        return this_state * step + other_state;
-      };
-      DeterministicAutomaton result{GetStateNumber() * other.GetStateNumber(),
-                                    get_index(initial_state(), other.initial_state())};
-      for (std::size_t this_from_state = 0; this_from_state < GetStateNumber(); ++this_from_state)
-        for (std::size_t other_from_state = 0; other_from_state < GetStateNumber(); ++other_from_state) {
-          auto new_state = get_index(this_from_state, other_from_state);
-          if (IsAccepting(this_from_state) && other.IsAccepting(other_from_state))
-            result.SetAccepting(new_state);
-          const auto &other_transitions = other.GetTransitions(other_from_state);
-          for (auto[symbol, this_to_state]: GetTransitions(this_from_state)) {
-            auto it = other_transitions.find(symbol);
-            if (it != other_transitions.end())
-              result.AddTransition(new_state, get_index(this_to_state, it->second), symbol);
-          }
-        }
-      return result;
-    }
+    DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const;
   };
 
   class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
@@ -294,6 +285,8 @@ namespace automata {
   private:
     static void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second);
   };
+
+  DeterministicAutomaton RegexToMCDFA(const regex::Regex &expression, const std::vector<char> &alphabet);
 
   regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet);
 }
