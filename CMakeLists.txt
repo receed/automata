@@ -35,3 +35,4 @@ add_executable(automata_test
         src/regex.cpp
         )
 
+add_compile_options(-Wall -Wextra -pedantic -Werror)

@@ -16,7 +16,9 @@ namespace automata {
   template<typename T>
   class Automaton {
   public:
-    using TransitionString = decltype(std::declval<T>().begin()->first);
+    virtual ~Automaton() = default;
+
+    using TransitionString = std::decay_t<decltype(std::declval<T>().begin()->first)>;
 
     struct Transition {
       std::size_t from_state, to_state;
@@ -24,7 +26,7 @@ namespace automata {
     };
 
     Automaton(std::size_t initial_state, std::vector<bool> is_accepting) :
-        initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(is_accepting_.size()) {}
+        initial_state_(initial_state), is_accepting_(is_accepting), transitions_(is_accepting.size()) {}
 
     Automaton(std::size_t initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
         initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(std::move(transitions)) {
@@ -97,8 +99,6 @@ namespace automata {
     }
 
   protected:
-    std::vector<T> transitions_;
-
     std::vector<std::size_t> GetReachableStates() const {
       std::vector<bool> is_reachable(GetStateNumber());
       std::stack<std::size_t> to_process;
@@ -121,8 +121,10 @@ namespace automata {
     }
 
   private:
-    std::vector<bool> is_accepting_;
     std::size_t initial_state_;
+    std::vector<bool> is_accepting_;
+  protected:
+    std::vector<T> transitions_;
   };
 
   template<typename T>
@@ -168,7 +170,7 @@ namespace automata {
   class AbstractAutomaton : public Automaton<std::vector<std::pair<TransitionString, std::size_t>>> {
   public:
     using Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Automaton;
-    using typename Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Transition;
+    using Transition = typename Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Transition;
 
     AbstractAutomaton(std::size_t state_number, std::size_t initial_state,
                       const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
@@ -193,7 +195,7 @@ namespace automata {
     AbstractAutomaton &MakeSingleAcceptingState() {
       auto state_number = this->GetStateNumber();
       auto accepting_state = this->AddState();
-      this->SetAccepting(accepting_state, true);
+      this->SetAccepting(accepting_state);
       for (std::size_t state = 0; state < state_number; ++state)
         if (this->IsAccepting(state)) {
           AddTransition(state, accepting_state, {});
@@ -201,6 +203,7 @@ namespace automata {
         }
       return *this;
     }
+
   };
 
   class NondeterministicAutomaton;
@@ -211,7 +214,8 @@ namespace automata {
 
     DeterministicAutomaton(std::size_t state_number, std::size_t initial_state,
                            const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
-        : DeterministicAutomaton(state_number, initial_state, accepting_states) {
+        : Automaton<std::unordered_map<char, std::size_t>>(state_number, initial_state, accepting_states) {
+      static_assert(std::is_same_v<TransitionString, char>);
       for (const auto &[from_state, to_state, transition_string]: transitions)
         AddTransition(from_state, to_state, transition_string);
     }
@@ -231,6 +235,27 @@ namespace automata {
     NondeterministicAutomaton ToNondeterministic();
 
     DeterministicAutomaton Minimize() const;
+
+    DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const {
+      auto get_index = [step = other.GetStateNumber()](std::size_t this_state, std::size_t other_state) {
+        return this_state * step + other_state;
+      };
+      DeterministicAutomaton result{GetStateNumber() * other.GetStateNumber(),
+                                    get_index(initial_state(), other.initial_state())};
+      for (std::size_t this_from_state = 0; this_from_state < GetStateNumber(); ++this_from_state)
+        for (std::size_t other_from_state = 0; other_from_state < GetStateNumber(); ++other_from_state) {
+          auto new_state = get_index(this_from_state, other_from_state);
+          if (IsAccepting(this_from_state) && other.IsAccepting(other_from_state))
+            result.SetAccepting(new_state);
+          const auto &other_transitions = other.GetTransitions(other_from_state);
+          for (auto[symbol, this_to_state]: GetTransitions(this_from_state)) {
+            auto it = other_transitions.find(symbol);
+            if (it != other_transitions.end())
+              result.AddTransition(new_state, get_index(this_to_state, it->second), symbol);
+          }
+        }
+      return result;
+    }
   };
 
   class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
@@ -239,13 +264,15 @@ namespace automata {
 
     NondeterministicAutomaton &SplitTransitions();
 
-    NondeterministicAutomaton &RemoveEmptyTransitions();
+    NondeterministicAutomaton RemoveEmptyTransitions() const;
+
+    DeterministicAutomaton DeterminizeSingleLetterTransitions() const;
 
     DeterministicAutomaton Determinize() const;
 
-    regex::Regex ToRegex() const;
-
     static NondeterministicAutomaton FromRegex(const regex::Regex &input);
+
+    regex::Regex ToRegex() const;
   };
 
   class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {
@@ -265,15 +292,10 @@ namespace automata {
     NondeterministicAutomaton Process(const regex::KleeneStar &regex, NondeterministicAutomaton inner) override;
 
   private:
-    static void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
-      auto offset = first.GetStateNumber();
-      for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
-        first.AddState();
-      second.ForEachTransition([&first, offset](auto from_state, auto to_state, const auto &transition_string) {
-        first.AddTransition(from_state + offset, to_state + offset, transition_string);
-      });
-    }
+    static void MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second);
   };
+
+  regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet);
 }
 
 #endif //AUTOMATA_AUTOMATON_H

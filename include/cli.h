@@ -15,6 +15,7 @@ namespace cli {
   class CLI {
   public:
     CLI();
+
     std::size_t AddObject(Object object);
 
     template<typename T>
@@ -52,6 +53,13 @@ namespace cli {
       virtual ~Command() = default;
 
       virtual void Execute() = 0;
+
+      template<typename T>
+      T &GetObject() {
+        std::size_t id;
+        args_ >> id;
+        return cli_.GetObject<T>(id);
+      }
     };
 
     template<typename T>
@@ -65,8 +73,7 @@ namespace cli {
           std::cin >> object;
         else
           object = automata::Parse<T>(std::cin);
-        std::size_t id = cli_.AddObject(object);
-        std::cout << "Id: " << id << '\n';
+        cli_.AddObject(object);
       }
     };
 
@@ -74,12 +81,10 @@ namespace cli {
     class OnObject : public Command {
     public:
       OnObject(CLI &cli, std::istream &args) : Command(cli, args) {
-        std::size_t id;
-        args_ >> id;
-        object = &cli_.GetObject<T>(id);
+        object_ = &GetObject<T>();
       }
 
-      T* object;
+      T *object_;
     };
 
     class Print : public OnObject<Object> {
@@ -87,7 +92,7 @@ namespace cli {
       using OnObject<Object>::OnObject;
 
       void Execute() override {
-        std::visit([](auto && object) { std::cout << object << std::endl; }, *object);
+        std::visit([](auto &&object) { std::cout << object << std::endl; }, *object_);
       }
     };
 
@@ -97,7 +102,7 @@ namespace cli {
       using OnObject<T>::OnObject;
 
       void Execute() override {
-        this->object->AddState();
+        this->object_->AddState();
       }
     };
 
@@ -108,18 +113,18 @@ namespace cli {
         args >> from_state >> to_state >> transition_string;
       }
 
-      std::size_t from_state, to_state;
+      std::size_t from_state{}, to_state{};
       typename T::TransitionString transition_string;
 
       void Execute() override {
-        this->object->AddTransition(from_state, to_state, transition_string);
+        this->object_->AddTransition(from_state, to_state, transition_string);
       }
     };
 
     template<typename T>
     class SetAccepting : public OnObject<T> {
     public:
-      std::size_t state;
+      std::size_t state{};
       bool value;
 
       SetAccepting(CLI &cli, std::istream &args) : OnObject<T>(cli, args) {
@@ -133,11 +138,108 @@ namespace cli {
       }
     };
 
+    class Minimize : public OnObject<automata::DeterministicAutomaton> {
+    public:
+      using OnObject::OnObject;
+
+      void Execute() override {
+        cli_.AddObject(object_->Minimize());
+      }
+    };
+
+    class ToComplete : public OnObject<automata::DeterministicAutomaton> {
+    public:
+      ToComplete(CLI &cli, std::istream &args) : OnObject<automata::DeterministicAutomaton>(cli, args) {
+        std::string alphabet;
+        args_ >> alphabet;
+        std::ranges::copy(alphabet, std::back_inserter(alphabet_));
+      }
+
+      void Execute() override {
+        cli_.AddObject(object_->MakeComplete(alphabet_));
+      }
+
+    private:
+      std::vector<char> alphabet_;
+    };
+
+    class Determinize : public OnObject<automata::NondeterministicAutomaton> {
+    public:
+      using OnObject::OnObject;
+
+      void Execute() override {
+        cli_.AddObject(object_->Determinize());
+      }
+    };
+
+    class Complement : public OnObject<Object> {
+    public:
+      Complement(CLI &cli, std::istream &args) : OnObject<Object>(cli, args) {
+        std::string alphabet;
+        args_ >> alphabet;
+        std::ranges::copy(alphabet, std::back_inserter(alphabet_));
+      }
+
+      void Execute() override {
+        std::visit([this](auto &&object) {
+          using T = std::decay_t<decltype(object)>;
+          if constexpr(std::is_same_v<T, regex::Regex>)
+            this->cli_.AddObject(automata::RegexComplement(object, alphabet_));
+          else if constexpr(std::is_same_v<T, automata::DeterministicAutomaton>) {
+            auto copy = object;
+            this->cli_.AddObject(copy.MakeComplete(alphabet_).Complement());
+          }
+        }, *this->object_);
+      }
+
+      private:
+      std::vector<char> alphabet_;
+    };
+
+    class ToRegex : public OnObject<automata::NondeterministicAutomaton> {
+    public:
+      using OnObject::OnObject;
+
+      void Execute() override {
+        cli_.AddObject(object_->ToRegex());
+      }
+    };
+
+    class ToNFA : public OnObject<regex::Regex> {
+    public:
+      using OnObject::OnObject;
+
+      void Execute() override {
+        cli_.AddObject(automata::NondeterministicAutomaton::FromRegex(*object_));
+      }
+    };
+
+    template<typename T, typename Q = T>
+    class OnObjects : public Command {
+    public:
+      OnObjects(CLI &cli, std::istream &args) : Command(cli, args) {
+        first_ = &GetObject<T>();
+        first_ = &GetObject<Q>();
+      }
+
+      T *first_;
+      Q *second_;
+    };
+
+    class Intersection : public OnObjects<automata::DeterministicAutomaton> {
+    public:
+      using OnObjects::OnObjects;
+
+      void Execute() override {
+        this->cli_.AddObject(first_->Intersection(*second_));
+      }
+    };
+
     class AbstractCommandHandle {
     public:
       virtual ~AbstractCommandHandle() = default;
 
-      AbstractCommandHandle(std::string name) : name_(std::move(name)) {}
+      explicit AbstractCommandHandle(std::string name) : name_(std::move(name)) {}
 
       virtual std::unique_ptr<Command> create(CLI &cli, std::istream &args) = 0;
 

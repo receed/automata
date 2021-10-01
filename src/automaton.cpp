@@ -94,6 +94,7 @@ namespace automata {
     return minimized_automaton;
   }
 
+
   NondeterministicAutomaton &NondeterministicAutomaton::SplitTransitions() {
     auto state_number = GetStateNumber();
     for (std::size_t state = 0; state < state_number; ++state) {
@@ -116,8 +117,9 @@ namespace automata {
     return *this;
   }
 
-  NondeterministicAutomaton &NondeterministicAutomaton::RemoveEmptyTransitions() {
+  NondeterministicAutomaton NondeterministicAutomaton::RemoveEmptyTransitions() const {
     auto state_number = GetStateNumber();
+    NondeterministicAutomaton result{state_number, initial_state()};
     for (std::size_t from_state = 0; from_state < state_number; ++from_state) {
       std::vector<bool> visited(state_number);
       visited[from_state] = true;
@@ -131,20 +133,21 @@ namespace automata {
             to_process.push_back(to_state);
           }
       }
-      for (std::size_t to_state = 0; to_state < state_number; ++to_state)
-        if (visited[to_state] && to_state != from_state) {
+      for (std::size_t to_state = 0; to_state < state_number; ++to_state) {
+        if (visited[to_state]) {
           if (IsAccepting(to_state))
-            SetAccepting(from_state);
-          this->AddTransition(from_state, to_state, "");
+            result.SetAccepting(from_state);
           for (const auto &[transition_string, next_state]: GetTransitions(to_state))
-            this->AddTransition(from_state, next_state, transition_string);
+            if (!transition_string.empty())
+              result.AddTransition(from_state, next_state, transition_string);
         }
-      RemoveDuplicateTransitions(from_state);
+      }
+      result.RemoveDuplicateTransitions(from_state);
     }
-    return *this;
+    return result;
   }
 
-  DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
+  DeterministicAutomaton NondeterministicAutomaton::DeterminizeSingleLetterTransitions() const {
     std::vector<bool> initial_subset(GetStateNumber());
     initial_subset[initial_state()] = true;
     std::map<std::vector<bool>, std::size_t> subset_indices{{initial_subset, 0}};
@@ -186,13 +189,30 @@ namespace automata {
     return determinized_automaton;
   }
 
+  DeterministicAutomaton NondeterministicAutomaton::Determinize() const {
+    auto result = RemoveEmptyTransitions();
+    result.SplitTransitions();
+    return result.DeterminizeSingleLetterTransitions();
+  }
+
+  NondeterministicAutomaton NondeterministicAutomaton::FromRegex(const regex::Regex &input) {
+    AutomatonVisitor visitor;
+    input.Visit(visitor);
+    auto automaton = visitor.GetResult();
+    automaton.SetAccepting(automaton.GetStateNumber() - 1);
+    return automaton;
+  }
+
   regex::Regex NondeterministicAutomaton::ToRegex() const {
     auto state_number = GetStateNumber();
     auto regex_transitions = std::vector(state_number, std::vector<regex::Regex>(state_number,
                                                                                  regex::Create<regex::None>()));
     ForEachTransition([&regex_transitions](auto from_state, auto to_state, auto transition_string) {
-      for (char symbol: transition_string)
-        regex_transitions[from_state][to_state] += regex::Create<regex::Literal>(symbol);
+      assert(transition_string.size() < 2);
+      if (transition_string.empty())
+        regex_transitions[from_state][to_state] += regex::Create<regex::Empty>();
+      else
+        regex_transitions[from_state][to_state] += regex::Create<regex::Literal>(transition_string[0]);
     });
 
     std::optional<std::size_t> accepting_state;
@@ -227,14 +247,6 @@ namespace automata {
     return initial_to_accepting * (regex_transitions[*accepting_state][*accepting_state] +
                                    regex_transitions[*accepting_state][initial_state()] *
                                    initial_to_accepting).Iterate();
-  }
-
-  NondeterministicAutomaton NondeterministicAutomaton::FromRegex(const regex::Regex &input) {
-    AutomatonVisitor visitor;
-    input.Visit(visitor);
-    auto automaton = visitor.GetResult();
-    automaton.SetAccepting(automaton.GetStateNumber() - 1);
-    return automaton;
   }
 
   NondeterministicAutomaton AutomatonVisitor::Process(const regex::Literal &regex) {
@@ -282,5 +294,20 @@ namespace automata {
     result.AddTransition(result.GetStateNumber() - 1, 0, "");
     result.SetAccepting(0);
     return result;
+  }
+
+  void AutomatonVisitor::MergeAutomatons(NondeterministicAutomaton &first, const NondeterministicAutomaton &second) {
+    auto offset = first.GetStateNumber();
+    for (std::size_t state = 0; state < second.GetStateNumber(); ++state)
+      first.AddState();
+    second.ForEachTransition([&first, offset](auto from_state, auto to_state, const auto &transition_string) {
+      first.AddTransition(from_state + offset, to_state + offset, transition_string);
+    });
+  }
+
+  regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet) {
+    auto automata = NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(alphabet).Minimize().Complement().ToNondeterministic();
+    automata.MakeSingleAcceptingState();
+    return automata.ToRegex();
   }
 }

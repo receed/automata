@@ -25,9 +25,7 @@ TEST_SUITE("Split transitions") {
 TEST_CASE("Remove empty transitions") {
   CHECK_EQ(
       NondeterministicAutomaton{5, 0, {1}, {{1, 0, ""}, {2, 1, ""}, {3, 2, ""}, {1, 4, "ab"}}}.RemoveEmptyTransitions(),
-      NondeterministicAutomaton{5, 0, {1, 2, 3},
-                                {{1, 0, ""}, {1, 4, "ab"}, {2, 0, ""}, {2, 1, ""}, {2, 4, "ab"}, {3, 0, ""}, {3, 1, ""},
-                                 {3, 2, ""}, {3, 4, "ab"}}}
+      NondeterministicAutomaton{5, 0, {1, 2, 3}, {{1, 4, "ab"}, {2, 4, "ab"}, {3, 4, "ab"}}}
   );
 }
 
@@ -111,6 +109,14 @@ TEST_SUITE("Build regular expression by automaton") {
         "(aab)*(ab+aaa)(a(aab)*(ab+aaa))*"
     );
   }
+
+  TEST_CASE("Empty transition") {
+    CHECK_EQ(
+        NondeterministicAutomaton{3, 0, {2}, {{0, 1, "a"}, {1, 2, ""}}}.ToRegex().ToString(),
+        "a"
+    );
+  }
+
 }
 
 TEST_SUITE("Minimization") {
@@ -224,4 +230,23 @@ TEST_SUITE("Print and Parse regex") {
                                    {5, 6, ""}}}
     );
   }
+}
+
+TEST_CASE("Regex complement") {
+  auto expression = regex::Regex::Parse("aa");
+  auto automata = NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(
+      {'a', 'b'}).Minimize().Complement().ToNondeterministic();
+  automata.MakeSingleAcceptingState();
+  std::cout << automata;
+  std::cout << automata.ToRegex();
+}
+
+TEST_CASE("Automaton intersection") {
+  DeterministicAutomaton first{2, 0, {1}, {{0, 1, 'a'}, {1, 0, 'a'}, {0, 0, 'b'}, {1, 1, 'b'}}};
+  DeterministicAutomaton second{2, 1, {0}, {{0, 1, 'b'}, {1, 0, 'b'}, {0, 0, 'a'}, {1, 1, 'a'}}};
+  CHECK_EQ(
+      first.Intersection(second),
+      DeterministicAutomaton{4, 1, {2},
+                             {{0, 2, 'a'}, {0, 1, 'b'}, {1, 3, 'a'}, {1, 0, 'b'}, {2, 0, 'a'}, {2, 3, 'b'}, {3, 1, 'a'},
+                              {3, 2, 'b'}}});
 }

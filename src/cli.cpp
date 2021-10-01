@@ -7,11 +7,20 @@ namespace cli {
     AddCommandHandle<command::AddState<automata::NondeterministicAutomaton>>("add_state");
     AddCommandHandle<command::AddTransition<automata::NondeterministicAutomaton>>("add_transition");
     AddCommandHandle<command::Print>("print");
+    AddCommandHandle<command::Minimize>("minimize");
+    AddCommandHandle<command::ToComplete>("to_complete");
+    AddCommandHandle<command::Determinize>("determinize");
+    AddCommandHandle<command::Complement>("complement");
+    AddCommandHandle<command::Intersection>("intersection");
+    AddCommandHandle<command::ToRegex>("to_regex");
+    AddCommandHandle<command::ToNFA>("to_nfa");
   }
 
   std::size_t CLI::AddObject(cli::Object object) {
+    std::size_t id = objects_.size();
+    std::cout << "Id: " << id << '\n';
     objects_.push_back(std::move(object));
-    return objects_.size() - 1;
+    return id;
   }
 
   void CLI::ExecuteCommand(const std::string &command_string) {
