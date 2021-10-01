@@ -36,3 +36,4 @@ add_executable(automata_test
         )
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
+

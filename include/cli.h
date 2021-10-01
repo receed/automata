@@ -157,7 +157,8 @@ namespace cli {
       }
 
       void Execute() override {
-        cli_.AddObject(object_->MakeComplete(alphabet_));
+        auto copy = *object_;
+        cli_.AddObject(copy.MakeComplete(alphabet_));
       }
 
     private:
