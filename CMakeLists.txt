@@ -26,7 +26,8 @@ include_directories(include)
 add_executable(automata
         src/main.cpp
         src/automaton.cpp
-        src/regex.cpp)
+        src/regex.cpp
+        src/cli.cpp)
 
 add_executable(automata_test
         test/test.cpp

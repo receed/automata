@@ -110,6 +110,7 @@ namespace regex {
   class Regex {
   public:
     Regex(RegexPtr root_node) : root_node_(root_node) {}
+    Regex();
 
     void Visit(Visitor &visitor) const {
       std::stack<std::pair<RegexPtr, bool>> stack;
@@ -149,9 +150,14 @@ namespace regex {
       return os.str();
     }
 
+    static Regex Parse(const std::string &input);
+
   private:
     RegexPtr root_node_;
   };
+
+  std::istream& operator>>(std::istream &is, Regex &expression);
+  std::ostream& operator<<(std::ostream &os, const Regex &expression);
 
   struct None : public BaseRegex<None, 0> {
     None() : BaseRegex(2) {}
@@ -198,8 +204,6 @@ namespace regex {
 
     void Print(std::ostream &os) const override;
   };
-
-  Regex Parse(const std::string &input);
 
   template<typename T, typename... Args>
   Regex Create(Args &&... args) {

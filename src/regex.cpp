@@ -3,8 +3,6 @@
 #include <cassert>
 #include <vector>
 #include <variant>
-#include <regex.h>
-
 
 namespace regex {
   void RegexNode::Print(std::size_t outer_priority, std::ostream &os) const {
@@ -43,7 +41,7 @@ namespace regex {
     os << '*';
   }
 
-  Regex Parse(const std::string &input) {
+  Regex Regex::Parse(const std::string &input) {
     using Token = std::variant<Regex, char>;
     std::vector<Token> stack;
     auto reduce_sum = [&stack]() {
@@ -53,7 +51,7 @@ namespace regex {
       auto plus = std::get_if<char>(&stack[stack.size() - 2]);
       auto second = std::get_if<regex::Regex>(&stack.back());
       if (first && plus && second && *plus == '+') {
-        auto alteration = std::move(*first) + std::move(*second);
+        auto alteration = *first + *second;
         stack.pop_back();
         stack.pop_back();
         stack.back() = alteration;
@@ -97,6 +95,19 @@ namespace regex {
     return std::get<Regex>(stack[0]);
   }
 
+  std::istream &operator>>(std::istream &is, Regex &expression) {
+    std::string line;
+    std::getline(is, line);
+    expression = Regex::Parse(line);
+    return is;
+  }
+
+  std::ostream &operator<<(std::ostream &os, const Regex &expression) {
+    expression.Print(os);
+    return os;
+  }
+
+
   template<>
   Regex Create<Empty>() {
     static auto regex = Regex(std::make_shared<Empty>());
@@ -108,6 +119,8 @@ namespace regex {
     static auto regex = Regex(std::make_shared<None>());
     return regex;
   }
+
+  Regex::Regex() : Regex(Create<Empty>()) {}
 
   Regex regex::Regex::Iterate() {
     if (root_node_->IsNone() || root_node_->IsEmpty())

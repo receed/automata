@@ -3,6 +3,8 @@
 #include "doctest.h"
 #include "automaton.h"
 
+using namespace automata;
+
 TEST_SUITE("Split transitions") {
   TEST_CASE("Short transitions") {
     CHECK_EQ(
@@ -145,7 +147,7 @@ using namespace regex;
 
 void CheckPrintAndParse(const Regex &regex, const std::string &representation) {
   CHECK_EQ(regex.ToString(), representation);
-  CHECK_EQ(regex::Parse(representation).ToString(), representation);
+  CHECK_EQ(regex::Regex::Parse(representation).ToString(), representation);
 }
 
 TEST_SUITE("Print and Parse regex") {
@@ -181,42 +183,42 @@ TEST_SUITE("Print and Parse regex") {
 TEST_SUITE("Print and Parse regex") {
   TEST_CASE("Empty set") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("0")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("0")),
         NondeterministicAutomaton{2, 0, {1}, {}}
     );
   }
 
   TEST_CASE("Empty string") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("1")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("1")),
         NondeterministicAutomaton{2, 0, {1}, {{0, 1, ""}}}
     );
   }
 
   TEST_CASE("Single symbol") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("a")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("a")),
         NondeterministicAutomaton{2, 0, {1}, {{0, 1, "a"}}}
     );
   }
 
   TEST_CASE("Concatenation") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("ab")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("ab")),
         NondeterministicAutomaton{4, 0, {3}, {{0, 1, "a"}, {1, 2, ""}, {2, 3, "b"}}}
     );
   }
 
   TEST_CASE("Alteration") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("a+b")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("a+b")),
         NondeterministicAutomaton{6, 0, {5}, {{0, 1, ""}, {0, 3, ""}, {1, 2, "a"}, {3, 4, "b"}, {2, 5, ""}, {4, 5, ""}}}
     );
   }
 
   TEST_CASE("Compound regex") {
     CHECK_EQ(
-        NondeterministicAutomaton::FromRegex(regex::Parse("a*+b")),
+        NondeterministicAutomaton::FromRegex(regex::Regex::Parse("a*+b")),
         NondeterministicAutomaton{7, 0, {6},
                                   {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {2, 3, "a"}, {3, 1, ""}, {3, 6, ""}, {4, 5, "b"},
                                    {5, 6, ""}}}
