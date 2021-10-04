@@ -220,9 +220,7 @@ namespace automata {
   class NondeterministicAutomaton;
 
   class DeterministicAutomaton : public Automaton<std::unordered_map<char, std::size_t>> {
-  public:
-    using Automaton<std::unordered_map<char, std::size_t>>::Automaton;
-
+  public:using Automaton<std::unordered_map<char, std::size_t>>::Automaton;
     DeterministicAutomaton(std::size_t state_number, std::size_t initial_state,
                            const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
         : Automaton<std::unordered_map<char, std::size_t>>(state_number, initial_state, accepting_states) {
@@ -247,6 +245,8 @@ namespace automata {
     DeterministicAutomaton Minimize() const;
 
     DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const;
+
+    bool IsComplete() const;
   };
 
   class NondeterministicAutomaton : public AbstractAutomaton<std::string> {

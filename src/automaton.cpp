@@ -2,6 +2,7 @@
 #include "regex.h"
 #include <vector>
 #include <algorithm>
+#include <set>
 
 namespace automata {
   void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
@@ -32,9 +33,13 @@ namespace automata {
   }
 
   DeterministicAutomaton &DeterministicAutomaton::MakeComplete(const std::vector<char> &alphabet) {
+    auto alphabet_set = std::set(alphabet.begin(), alphabet.end());
+    ForEachTransition([&alphabet_set](auto from_state, auto to_state, auto transition_symbol) {
+      alphabet_set.insert(transition_symbol);
+    });
     auto sink_state = AddState();
     for (std::size_t state = 0; state < GetStateNumber(); ++state)
-      for (char symbol: alphabet) {
+      for (char symbol: alphabet_set) {
         if (!HasTransition(state, symbol))
           AddTransition(state, sink_state, symbol);
       }
@@ -42,6 +47,8 @@ namespace automata {
   }
 
   DeterministicAutomaton &DeterministicAutomaton::Complement() {
+    if (!IsComplete())
+      throw BadAutomatonException("Automaton for complement must be complete");
     for (std::size_t state = 0; state < GetStateNumber(); ++state)
       SetAccepting(state, !IsAccepting(state));
     return *this;
@@ -112,6 +119,17 @@ namespace automata {
         }
       }
     return result;
+  }
+
+  bool DeterministicAutomaton::IsComplete() const {
+    for (std::size_t state = 1; state < GetStateNumber(); ++state) {
+      if (GetTransitions(state).size() != GetTransitions(0).size())
+        return false;
+      for (auto[transition_symbol, to_state]: GetTransitions(state))
+        if (!GetTransitions(0).count(transition_symbol))
+          return false;
+    }
+    return true;
   }
 
 
