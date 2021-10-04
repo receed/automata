@@ -110,6 +110,7 @@ namespace regex {
   class Regex {
   public:
     Regex(RegexPtr root_node) : root_node_(root_node) {}
+
     Regex();
 
     void Visit(Visitor &visitor) const {
@@ -124,8 +125,9 @@ namespace regex {
         } else {
           was_processed = true;
           current_node->Enter(visitor);
-          for (const auto &child_node: std::ranges::reverse_view(current_node->children()))
+          for (const auto &child_node: std::ranges::reverse_view(current_node->children())) {
             stack.push({child_node, false});
+          }
         }
       }
     }
@@ -156,8 +158,9 @@ namespace regex {
     RegexPtr root_node_;
   };
 
-  std::istream& operator>>(std::istream &is, Regex &expression);
-  std::ostream& operator<<(std::ostream &os, const Regex &expression);
+  std::istream &operator>>(std::istream &is, Regex &expression);
+
+  std::ostream &operator<<(std::ostream &os, const Regex &expression);
 
   struct None : public BaseRegex<None, 0> {
     None() : BaseRegex(2) {}

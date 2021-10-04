@@ -20,12 +20,13 @@ namespace cli {
 
     template<typename T>
     T &GetObject(std::size_t id) {
-      if constexpr(std::is_same_v<T, Object>)
+      if constexpr(std::is_same_v<T, Object>) {
         return objects_.at(id);
-      else {
+      } else {
         auto object = std::get_if<T>(&objects_.at(id));
-        if (!object)
+        if (!object) {
           throw InvalidInputException("Wrong type of argument");
+        }
         return *object;
       }
     }
@@ -70,10 +71,11 @@ namespace cli {
 
       void Execute() override {
         T object;
-        if constexpr(std::is_same_v<T, regex::Regex>)
+        if constexpr(std::is_same_v<T, regex::Regex>) {
           std::cin >> object;
-        else
+        } else {
           object = automata::Parse<T>(std::cin);
+        }
         cli_.AddObject(object);
       }
     };
@@ -130,8 +132,9 @@ namespace cli {
 
       SetAccepting(CLI &cli, std::istream &args) : OnObject<T>(cli, args) {
         this->args_ >> state;
-        if (!(this->args_ >> value))
+        if (!(this->args_ >> value)) {
           value = true;
+        }
       }
 
       void Execute() override {
@@ -185,16 +188,16 @@ namespace cli {
       void Execute() override {
         std::visit([this](auto &&object) {
           using T = std::decay_t<decltype(object)>;
-          if constexpr(std::is_same_v<T, regex::Regex>)
+          if constexpr(std::is_same_v<T, regex::Regex>) {
             this->cli_.AddObject(automata::RegexComplement(object, alphabet_));
-          else if constexpr(std::is_same_v<T, automata::DeterministicAutomaton>) {
+          } else if constexpr(std::is_same_v<T, automata::DeterministicAutomaton>) {
             auto copy = object;
             this->cli_.AddObject(copy.MakeComplete(alphabet_).Complement());
           }
         }, *this->object_);
       }
 
-      private:
+    private:
       std::vector<char> alphabet_;
     };
 
@@ -277,7 +280,8 @@ namespace cli {
 
   template<typename T>
   void CLI::AddCommandHandle(std::string name) {
-    command_handles.push_back(std::make_unique<command::CommandHandle<T>>(name));
+    command_handles.push_back(std::make_unique<command::CommandHandle < T>>
+    (name));
   }
 }
 
