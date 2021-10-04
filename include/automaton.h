@@ -18,13 +18,76 @@ namespace automata {
   };
 
   template<typename T>
+  struct Transition {
+    T symbol;
+    std::size_t to_state;
+
+    auto operator<=>(const Transition<T> &) const = default;
+  };
+
+  template<typename T>
+  class TransitionVector : public std::vector<Transition<T>> {
+  public:
+    void Add(Transition<T> transition) {
+      std::vector<Transition<T>>::push_back(transition);
+    }
+  };
+
+  class TransitionMap : public std::map<char, std::size_t> {
+  public:
+    using Map = std::map<char, std::size_t>;
+
+    void Add(Transition<char> transition) {
+      transitions_.insert({transition.symbol, transition.to_state});
+    }
+
+    std::optional<std::size_t> GetTransition(char symbol) const {
+      auto it = transitions_.find(symbol);
+      if (it == transitions_.end()) {
+        return std::nullopt;
+      }
+      return it->second;
+    }
+
+    class Iterator {
+    public:
+      Iterator(Map::const_iterator map_iterator) : map_iterator_(map_iterator) {}
+
+      Iterator &operator++() {
+        ++map_iterator_;
+        return *this;
+      }
+
+      Transition<char> operator*() const {
+        return {map_iterator_->first, map_iterator_->second};
+      }
+
+      auto operator<=>(const Iterator &) const = default;
+
+    private:
+      Map::const_iterator map_iterator_;
+    };
+
+    Iterator begin() const {
+      return {transitions_.cbegin()};
+    }
+
+    Iterator end() const {
+      return {transitions_.cend()};
+    }
+
+  private:
+    Map transitions_;
+  };
+
+  template<typename TransitionContainer>
   class Automaton {
   public:
     virtual ~Automaton() = default;
 
-    using TransitionString = std::decay_t<decltype(std::declval<T>().begin()->first)>;
+    using TransitionString = decltype((*std::declval<TransitionContainer>().begin()).symbol);
 
-    struct Transition {
+    struct ExtendedTransition {
       std::size_t from_state, to_state;
       TransitionString transition_string;
     };
@@ -32,7 +95,7 @@ namespace automata {
     Automaton(std::size_t initial_state, std::vector<bool> is_accepting) :
         initial_state_(initial_state), is_accepting_(is_accepting), transitions_(is_accepting.size()) {}
 
-    Automaton(std::size_t initial_state, std::vector<bool> is_accepting, std::vector<T> transitions) :
+    Automaton(std::size_t initial_state, std::vector<bool> is_accepting, std::vector<TransitionContainer> transitions) :
         initial_state_(initial_state), is_accepting_(std::move(is_accepting)), transitions_(std::move(transitions)) {
       if (transitions_.size() != is_accepting_.size()) {
         throw BadAutomatonException("Sizes of accepting states and transitions differ");
@@ -48,7 +111,15 @@ namespace automata {
       }
     }
 
-    bool operator==(const Automaton<T> &other) const {
+    Automaton(std::size_t state_number, std::size_t initial_state,
+              const std::vector<std::size_t> &accepting_states, const std::vector<ExtendedTransition> &transitions)
+        : Automaton(state_number, initial_state, accepting_states) {
+      for (const auto &transition: transitions) {
+        this->AddTransition(transition.from_state, transition.to_state, transition.transition_string);
+      }
+    }
+
+    bool operator==(const Automaton<TransitionContainer> &other) const {
       return transitions_ == other.transitions_ && initial_state_ == other.initial_state_ &&
              is_accepting_ == other.is_accepting_;
     }
@@ -82,9 +153,11 @@ namespace automata {
       return AddState(false);
     }
 
-    virtual void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) = 0;
+    void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) {
+      transitions_[from_state].Add(Transition<TransitionString>{transition_symbol, to_state});
+    }
 
-    const T &GetTransitions(std::size_t from_state) const {
+    const TransitionContainer &GetTransitions(std::size_t from_state) const {
       return transitions_[from_state];
     }
 
@@ -103,11 +176,19 @@ namespace automata {
     template<typename F>
     void ForEachTransition(F &&function) const {
       for (std::size_t state = 0; state < GetStateNumber(); ++state) {
-        for (const auto &[transition, to_state]: GetTransitions(state)) {
-          function(state, to_state, transition);
+        for (const auto &transition: GetTransitions(state)) {
+          function(state, transition.to_state, transition.symbol);
         }
       }
     }
+
+    void RemoveDuplicateTransitions(std::size_t from_state) {
+      auto &outgoing_transitions = this->transitions_[from_state];
+      std::ranges::sort(outgoing_transitions);
+      auto to_erase = std::ranges::unique(outgoing_transitions);
+      outgoing_transitions.erase(to_erase.begin(), to_erase.end());
+    }
+
 
   protected:
     std::vector<std::size_t> GetReachableStates() const {
@@ -118,10 +199,10 @@ namespace automata {
       while (!to_process.empty()) {
         auto state = to_process.top();
         to_process.pop();
-        for (const auto &[transition, to_state]: GetTransitions(state)) {
-          if (!is_reachable[to_state]) {
-            is_reachable[to_state] = true;
-            to_process.push(to_state);
+        for (const auto &transition: GetTransitions(state)) {
+          if (!is_reachable[transition.to_state]) {
+            is_reachable[transition.to_state] = true;
+            to_process.push(transition.to_state);
           }
         }
       }
@@ -138,7 +219,7 @@ namespace automata {
     std::size_t initial_state_;
     std::vector<bool> is_accepting_;
   protected:
-    std::vector<T> transitions_;
+    std::vector<TransitionContainer> transitions_;
   };
 
   template<typename T>
@@ -152,8 +233,8 @@ namespace automata {
         os << " (accepting)";
       }
       os << ":\n";
-      for (const auto &[transition_string, to_state]: automaton.GetTransitions(state)) {
-        os << "  to " << to_state << " by " << transition_string << '\n';
+      for (const auto &transition: automaton.GetTransitions(state)) {
+        os << "  to " << transition.to_state << " by " << transition.symbol << '\n';
       }
     }
     return os;
@@ -191,64 +272,11 @@ namespace automata {
     return automaton;
   }
 
-  template<typename TransitionString>
-  class AbstractAutomaton : public Automaton<std::vector<std::pair<TransitionString, std::size_t>>> {
-  public:
-    using Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Automaton;
-    using Transition = typename Automaton<std::vector<std::pair<TransitionString, std::size_t>>>::Transition;
-
-    AbstractAutomaton(std::size_t state_number, std::size_t initial_state,
-                      const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
-        : AbstractAutomaton(state_number, initial_state, accepting_states) {
-      for (const auto &transition: transitions) {
-        AddTransition(transition.from_state, transition.to_state, transition.transition_string);
-      }
-    }
-
-    void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_string) final {
-      if (from_state >= this->GetStateNumber() || to_state >= this->GetStateNumber()) {
-        throw std::out_of_range("Invalid state index");
-      }
-      this->transitions_[from_state].emplace_back(std::move(transition_string), to_state);
-    }
-
-    void RemoveDuplicateTransitions(std::size_t from_state) {
-      auto &outgoing_transitions = this->transitions_[from_state];
-      std::ranges::sort(outgoing_transitions);
-      auto to_erase = std::ranges::unique(outgoing_transitions);
-      outgoing_transitions.erase(to_erase.begin(), to_erase.end());
-    }
-
-    AbstractAutomaton &MakeSingleAcceptingState() {
-      auto state_number = this->GetStateNumber();
-      auto accepting_state = this->AddState();
-      this->SetAccepting(accepting_state);
-      for (std::size_t state = 0; state < state_number; ++state) {
-        if (this->IsAccepting(state)) {
-          AddTransition(state, accepting_state, {});
-          this->SetAccepting(state, false);
-        }
-      }
-      return *this;
-    }
-
-  };
-
   class NondeterministicAutomaton;
 
-  class DeterministicAutomaton : public Automaton<std::unordered_map<char, std::size_t>> {
+  class DeterministicAutomaton : public Automaton<TransitionMap> {
   public:
-    using Automaton<std::unordered_map<char, std::size_t>>::Automaton;
-
-    DeterministicAutomaton(std::size_t state_number, std::size_t initial_state,
-                           const std::vector<std::size_t> &accepting_states, const std::vector<Transition> &transitions)
-        : Automaton<std::unordered_map<char, std::size_t>>(state_number, initial_state, accepting_states) {
-      for (const auto &[from_state, to_state, transition_string]: transitions) {
-        AddTransition(from_state, to_state, transition_string);
-      }
-    }
-
-    void AddTransition(std::size_t from_state, std::size_t to_state, TransitionString transition_symbol) final;
+    using Automaton<TransitionMap>::Automaton;
 
     bool HasTransition(std::size_t state, char symbol);
 
@@ -269,9 +297,9 @@ namespace automata {
     bool IsComplete() const;
   };
 
-  class NondeterministicAutomaton : public AbstractAutomaton<std::string> {
+  class NondeterministicAutomaton : public Automaton<TransitionVector<std::string>> {
   public:
-    using AbstractAutomaton<std::string>::AbstractAutomaton;
+    using Automaton<TransitionVector<std::string>>::Automaton;
 
     NondeterministicAutomaton &SplitTransitions();
 
@@ -284,6 +312,8 @@ namespace automata {
     static NondeterministicAutomaton FromRegex(const regex::Regex &input);
 
     regex::Regex ToRegex() const;
+
+    NondeterministicAutomaton &MakeSingleAcceptingState();
   };
 
   class AutomatonVisitor : public regex::AbstractVisitor<NondeterministicAutomaton> {

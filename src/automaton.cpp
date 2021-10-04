@@ -5,21 +5,12 @@
 #include <set>
 
 namespace automata {
-  void DeterministicAutomaton::AddTransition(std::size_t from_state, std::size_t to_state,
-                                             TransitionString transition_symbol) {
-    transitions_[from_state].emplace(transition_symbol, to_state);
-  }
-
   bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) {
-    return GetTransitions(state).count(symbol);
+    return GetTransitions(state).GetTransition(symbol).has_value();
   }
 
   std::optional<std::size_t> DeterministicAutomaton::GetNextState(std::size_t state, char symbol) {
-    auto it = GetTransitions(state).find(symbol);
-    if (it == GetTransitions(state).end()) {
-      return std::nullopt;
-    }
-    return it->second;
+    return GetTransitions(state).GetTransition(symbol);
   }
 
   bool DeterministicAutomaton::AcceptsString(std::string_view string) {
@@ -85,8 +76,8 @@ namespace automata {
           throw BadAutomatonException("The given DFA is not complete");
         }
         std::vector<std::size_t> new_class{class_indexes[state]};
-        for (auto[transition_symbol, to_state]: GetTransitions(state)) {
-          new_class.push_back(class_indexes[to_state]);
+        for (auto transition: GetTransitions(state)) {
+          new_class.push_back(class_indexes[transition.to_state]);
         }
         auto it = index_of_class.find(new_class);
         if (it != index_of_class.end()) {
@@ -125,10 +116,10 @@ namespace automata {
           result.SetAccepting(new_state);
         }
         const auto &other_transitions = other.GetTransitions(other_from_state);
-        for (auto[symbol, this_to_state]: GetTransitions(this_from_state)) {
-          auto it = other_transitions.find(symbol);
+        for (auto transition: GetTransitions(this_from_state)) {
+          auto it = other_transitions.find(transition.symbol);
           if (it != other_transitions.end()) {
-            result.AddTransition(new_state, get_index(this_to_state, it->second), symbol);
+            result.AddTransition(new_state, get_index(transition.to_state, it->second), transition.symbol);
           }
         }
       }
@@ -141,8 +132,8 @@ namespace automata {
       if (GetTransitions(state).size() != GetTransitions(0).size()) {
         return false;
       }
-      for (auto[transition_symbol, to_state]: GetTransitions(state)) {
-        if (!GetTransitions(0).count(transition_symbol)) {
+      for (auto transition: GetTransitions(state)) {
+        if (!GetTransitions(0).GetTransition(transition.symbol)) {
           return false;
         }
       }
@@ -183,10 +174,10 @@ namespace automata {
       while (!to_process.empty()) {
         auto current_state = to_process.back();
         to_process.pop_back();
-        for (const auto &[transition_string, to_state]: GetTransitions(current_state)) {
-          if (transition_string.empty() && !visited[to_state]) {
-            visited[to_state] = true;
-            to_process.push_back(to_state);
+        for (const auto &transition: GetTransitions(current_state)) {
+          if (transition.symbol.empty() && !visited[transition.to_state]) {
+            visited[transition.to_state] = true;
+            to_process.push_back(transition.to_state);
           }
         }
       }
@@ -195,9 +186,9 @@ namespace automata {
           if (IsAccepting(to_state)) {
             result.SetAccepting(from_state);
           }
-          for (const auto &[transition_string, next_state]: GetTransitions(to_state)) {
-            if (!transition_string.empty()) {
-              result.AddTransition(from_state, next_state, transition_string);
+          for (const auto &transition: GetTransitions(to_state)) {
+            if (!transition.symbol.empty()) {
+              result.AddTransition(from_state, transition.to_state, transition.symbol);
             }
           }
         }
@@ -227,15 +218,15 @@ namespace automata {
         if (IsAccepting(state)) {
           determinized_automaton.SetAccepting(current_subset_index);
         }
-        for (auto[transition_string, to_state]: GetTransitions(state)) {
-          if (transition_string.size() != 1) {
+        for (auto transition: GetTransitions(state)) {
+          if (transition.symbol.size() != 1) {
             throw BadAutomatonException("Transition is not single-letter");
           }
-          auto symbol = transition_string[0];
+          auto symbol = transition.symbol[0];
           if (!subset_transitions.count(symbol)) {
             subset_transitions[symbol] = std::vector<bool>(GetStateNumber());
           }
-          subset_transitions[symbol][to_state] = true;
+          subset_transitions[symbol][transition.to_state] = true;
         }
       }
 
@@ -325,6 +316,19 @@ namespace automata {
                                    initial_to_accepting).Iterate();
   }
 
+  NondeterministicAutomaton &NondeterministicAutomaton::MakeSingleAcceptingState() {
+    auto state_number = GetStateNumber();
+    auto accepting_state = AddState();
+    this->SetAccepting(accepting_state);
+    for (std::size_t state = 0; state < state_number; ++state) {
+      if (IsAccepting(state)) {
+        AddTransition(state, accepting_state, {});
+        SetAccepting(state, false);
+      }
+    }
+    return *this;
+  }
+
   NondeterministicAutomaton AutomatonVisitor::Process(const regex::Literal &regex) {
     return {2, 0, {1}, {{0, 1, std::string(1, regex.symbol)}}};
   }
@@ -383,8 +387,7 @@ namespace automata {
   }
 
   DeterministicAutomaton RegexToMCDFA(const regex::Regex &expression, const std::vector<char> &alphabet) {
-    return NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(
-        alphabet).Minimize();
+    return NondeterministicAutomaton::FromRegex(expression).Determinize().MakeComplete(alphabet).Minimize();
   }
 
   regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet) {

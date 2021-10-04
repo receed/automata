@@ -280,8 +280,7 @@ namespace cli {
 
   template<typename T>
   void CLI::AddCommandHandle(std::string name) {
-    command_handles.push_back(std::make_unique<command::CommandHandle < T>>
-    (name));
+    command_handles.push_back(std::make_unique<command::CommandHandle<T>>(name));
   }
 }
 

@@ -23,7 +23,6 @@ namespace cli {
     objects_.push_back(std::move(object));
     return id;
   }
-
   void CLI::ExecuteCommand(const std::string &command_string) {
     std::istringstream stream(command_string);
     std::string command_name;
