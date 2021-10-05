@@ -102,18 +102,15 @@ namespace automata {
       }
     }
 
-    explicit Automaton(std::size_t state_number = 0, std::size_t initial_state = 0,
-                       const std::vector<std::size_t> &accepting_states = {}) : transitions_(state_number),
-                                                                                is_accepting_(state_number),
-                                                                                initial_state_(initial_state) {
+    Automaton(std::size_t state_number = 0, std::size_t initial_state = 0,
+              const std::vector<std::size_t> &accepting_states = {},
+              const std::vector<ExtendedTransition> &transitions = {}) :
+        transitions_(state_number),
+        is_accepting_(state_number),
+        initial_state_(initial_state) {
       for (auto state: accepting_states) {
         SetAccepting(state);
       }
-    }
-
-    Automaton(std::size_t state_number, std::size_t initial_state,
-              const std::vector<std::size_t> &accepting_states, const std::vector<ExtendedTransition> &transitions)
-        : Automaton(state_number, initial_state, accepting_states) {
       for (const auto &transition: transitions) {
         this->AddTransition(transition.from_state, transition.to_state, transition.transition_string);
       }
@@ -188,7 +185,6 @@ namespace automata {
       auto to_erase = std::ranges::unique(outgoing_transitions);
       outgoing_transitions.erase(to_erase.begin(), to_erase.end());
     }
-
 
   protected:
     std::vector<std::size_t> GetReachableStates() const {
@@ -288,8 +284,6 @@ namespace automata {
 
     DeterministicAutomaton &Complement();
 
-    NondeterministicAutomaton ToNondeterministic();
-
     DeterministicAutomaton Minimize() const;
 
     DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const;
@@ -300,6 +294,7 @@ namespace automata {
   class NondeterministicAutomaton : public Automaton<TransitionVector<std::string>> {
   public:
     using Automaton<TransitionVector<std::string>>::Automaton;
+    NondeterministicAutomaton(const DeterministicAutomaton &deterministic);
 
     NondeterministicAutomaton &SplitTransitions();
 

@@ -51,14 +51,6 @@ namespace automata {
     return *this;
   }
 
-  NondeterministicAutomaton DeterministicAutomaton::ToNondeterministic() {
-    NondeterministicAutomaton result(initial_state(), is_accepting());
-    ForEachTransition([&result](auto from_state, auto to_state, auto transition_symbol) {
-      result.AddTransition(from_state, to_state, std::string(1, transition_symbol));
-    });
-    return result;
-  }
-
   DeterministicAutomaton DeterministicAutomaton::Minimize() const {
     std::vector<std::size_t> class_indexes(GetStateNumber());
     std::size_t class_number;
@@ -141,6 +133,12 @@ namespace automata {
     return true;
   }
 
+  NondeterministicAutomaton::NondeterministicAutomaton(const DeterministicAutomaton &deterministic) :
+      NondeterministicAutomaton(deterministic.initial_state(), deterministic.is_accepting()) {
+    deterministic.ForEachTransition([this](auto from_state, auto to_state, auto transition_symbol) {
+      this->AddTransition(from_state, to_state, std::string(1, transition_symbol));
+    });
+  }
 
   NondeterministicAutomaton &NondeterministicAutomaton::SplitTransitions() {
     auto state_number = GetStateNumber();
@@ -391,7 +389,7 @@ namespace automata {
   }
 
   regex::Regex RegexComplement(const regex::Regex &expression, const std::vector<char> &alphabet) {
-    auto automata = RegexToMCDFA(expression, alphabet).Complement().ToNondeterministic();
+    auto automata = NondeterministicAutomaton(RegexToMCDFA(expression, alphabet).Complement());
     automata.MakeSingleAcceptingState();
     return automata.ToRegex();
   }

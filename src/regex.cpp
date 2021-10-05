@@ -119,7 +119,6 @@ namespace regex {
     return os;
   }
 
-
   template<>
   Regex Create<Empty>() {
     static auto regex = Regex(std::make_shared<Empty>());

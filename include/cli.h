@@ -151,21 +151,27 @@ namespace cli {
       }
     };
 
-    class ToComplete : public OnObject<automata::DeterministicAutomaton> {
+    template<typename T>
+    class WithAlphabet : public OnObject<T> {
     public:
-      ToComplete(CLI &cli, std::istream &args) : OnObject<automata::DeterministicAutomaton>(cli, args) {
+      WithAlphabet(CLI &cli, std::istream &args) : OnObject<T>(cli, args) {
         std::string alphabet;
-        args_ >> alphabet;
+        args >> alphabet;
         std::ranges::copy(alphabet, std::back_inserter(alphabet_));
       }
+
+    protected:
+      std::vector<char> alphabet_;
+    };
+
+    class ToComplete : public WithAlphabet<automata::DeterministicAutomaton> {
+    public:
+      ToComplete(CLI &cli, std::istream &args) : WithAlphabet<automata::DeterministicAutomaton>(cli, args) {}
 
       void Execute() override {
         auto copy = *object_;
         cli_.AddObject(copy.MakeComplete(alphabet_));
       }
-
-    private:
-      std::vector<char> alphabet_;
     };
 
     class Determinize : public OnObject<automata::NondeterministicAutomaton> {
@@ -177,13 +183,9 @@ namespace cli {
       }
     };
 
-    class Complement : public OnObject<Object> {
+    class Complement : public WithAlphabet<Object> {
     public:
-      Complement(CLI &cli, std::istream &args) : OnObject<Object>(cli, args) {
-        std::string alphabet;
-        args_ >> alphabet;
-        std::ranges::copy(alphabet, std::back_inserter(alphabet_));
-      }
+      Complement(CLI &cli, std::istream &args) : WithAlphabet<Object>(cli, args) {}
 
       void Execute() override {
         std::visit([this](auto &&object) {
@@ -196,9 +198,6 @@ namespace cli {
           }
         }, *this->object_);
       }
-
-    private:
-      std::vector<char> alphabet_;
     };
 
     class ToRegex : public OnObject<automata::NondeterministicAutomaton> {
@@ -219,20 +218,13 @@ namespace cli {
       }
     };
 
-    class ToMCDFA : public OnObject<regex::Regex> {
+    class ToMCDFA : public WithAlphabet<regex::Regex> {
     public:
-      ToMCDFA(CLI &cli, std::istream &args) : OnObject<regex::Regex>(cli, args) {
-        std::string alphabet;
-        args_ >> alphabet;
-        std::ranges::copy(alphabet, std::back_inserter(alphabet_));
-      }
+      ToMCDFA(CLI &cli, std::istream &args) : WithAlphabet<regex::Regex>(cli, args) {}
 
       void Execute() override {
         cli_.AddObject(automata::RegexToMCDFA(*object_, alphabet_));
       }
-
-    private:
-      std::vector<char> alphabet_;
     };
 
     template<typename T, typename Q = T>
