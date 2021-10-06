@@ -1,6 +1,30 @@
 #include "cli.h"
 
 namespace cli {
+  automata::DeterministicAutomaton ToDfa(const Object &object) {
+    return std::visit([](auto&& object) {
+      using T = std::decay_t<decltype(object)>;
+      if constexpr (std::is_same_v<T, regex::Regex>)
+        return automata::RegexToMCDFA(object, {});
+      else if constexpr (std::is_same_v<T, automata::NondeterministicAutomaton>)
+        return object.Determinize();
+      else
+        return object;
+    }, object);
+  }
+
+  automata::NondeterministicAutomaton ToNfa(const Object &object) {
+    return std::visit([](auto&& object) {
+      using T = std::decay_t<decltype(object)>;
+      if constexpr (std::is_same_v<T, regex::Regex>)
+        return automata::NondeterministicAutomaton::FromRegex(object);
+      else if constexpr (std::is_same_v<T, automata::NondeterministicAutomaton>)
+        return object;
+      else
+        return automata::NondeterministicAutomaton(object);
+    }, object);
+  }
+
   CLI::CLI() {
     AddCommandHandle<command::Create<regex::Regex>>("regex");
     AddCommandHandle<command::Create<automata::NondeterministicAutomaton>>("automaton");
@@ -15,14 +39,15 @@ namespace cli {
     AddCommandHandle<command::ToRegex>("to_regex");
     AddCommandHandle<command::ToNFA>("to_nfa");
     AddCommandHandle<command::ToMCDFA>("to_mcdfa");
+    AddCommandHandle<command::Equivalence>("equiv");
   }
-
   std::size_t CLI::AddObject(cli::Object object) {
     std::size_t id = objects_.size();
     std::cout << "Id: " << id << '\n';
     objects_.push_back(std::move(object));
     return id;
   }
+
   void CLI::ExecuteCommand(const std::string &command_string) {
     std::istringstream stream(command_string);
     std::string command_name;

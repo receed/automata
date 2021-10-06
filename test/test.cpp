@@ -149,6 +149,42 @@ TEST_SUITE("Minimization") {
   }
 }
 
+TEST_SUITE("Automaton isomorphism check") {
+  TEST_CASE("Different state count") {
+    CHECK_FALSE(DeterministicAutomaton{1, 0, {0}, {}}.IsIsomorphic(DeterministicAutomaton{2, 0, {}, {}}));
+  }
+
+  TEST_CASE("Single accepting state") {
+    CHECK(DeterministicAutomaton{1, 0, {0}, {}}.IsIsomorphic(DeterministicAutomaton{1, 0, {0}, {}}));
+  }
+
+  TEST_CASE("Single accepting and non-accepting states") {
+    CHECK_FALSE(DeterministicAutomaton{1, 0, {0}, {}}.IsIsomorphic(DeterministicAutomaton{1, 0, {}, {}}));
+  }
+
+  TEST_CASE("Identical automata") {
+    CHECK(
+        DeterministicAutomaton{2, 0, {1}, {{0, 1, 'a'}}}.IsIsomorphic(
+            DeterministicAutomaton{2, 0, {1}, {{0, 1, 'a'}}}));
+  }
+
+  TEST_CASE("Automata with and without transition") {
+    CHECK_FALSE(DeterministicAutomaton{2, 0, {1}, {}}.IsIsomorphic(DeterministicAutomaton{2, 0, {1}, {{0, 1, 'a'}}}));
+  }
+
+  TEST_CASE("Renumbered states") {
+    CHECK(DeterministicAutomaton{3, 0, {2}, {{0, 1, 'a'}, {0, 2, 'b'}}}.IsIsomorphic(
+        DeterministicAutomaton{3, 1, {0}, {{1, 2, 'a'}, {1, 0, 'b'}}}));
+  }
+
+  TEST_CASE("Automaton accepts a subset of another one's language") {
+    DeterministicAutomaton first{3, 0, {1}, {{0, 1, 'a'}, {1, 0, 'a'}}};
+    DeterministicAutomaton second{3, 0, {1}, {{0, 1, 'a'}, {1, 2, 'a'}}};
+    CHECK_FALSE(first.IsIsomorphic(second));
+    CHECK_FALSE(second.IsIsomorphic(first));
+  }
+}
+
 using namespace regex;
 
 void CheckPrintAndParse(const Regex &regex, const std::string &representation) {
@@ -238,6 +274,36 @@ TEST_CASE("Regex complement") {
       automata::RegexComplement(expression, {'a', 'b'}).ToString(),
       "1+a+(b+ab+aa(a+b))(a+b)*"
   );
+}
+
+TEST_SUITE("Regex equivalence") {
+  TEST_CASE("Same symbol") {
+    CHECK(regex::Regex::Parse("a") == regex::Regex::Parse("a"));
+  }
+
+  TEST_CASE("Different symbols") {
+    CHECK_FALSE(regex::Regex::Parse("a") == regex::Regex::Parse("b"));
+  }
+
+  TEST_CASE("Product Kleene star and symbol") {
+    CHECK(regex::Regex::Parse("aa*") == regex::Regex::Parse("a*a"));
+  }
+
+  TEST_CASE("Symbol added next to Kleene star matters") {
+    CHECK_FALSE(regex::Regex::Parse("a*") == regex::Regex::Parse("aa*"));
+  }
+
+  TEST_CASE("Alteration is commutative") {
+    CHECK(regex::Regex::Parse("a+b") == regex::Regex::Parse("b+a"));
+  }
+
+  TEST_CASE("Concatenation is not commutative") {
+    CHECK_FALSE(regex::Regex::Parse("ab") == regex::Regex::Parse("ba"));
+  }
+
+  TEST_CASE("Different ways to write aba...ba") {
+    CHECK(regex::Regex::Parse("(ab)*a") == regex::Regex::Parse("a(ba)*"));
+  }
 }
 
 TEST_CASE("Automaton intersection") {

@@ -134,13 +134,15 @@ namespace regex {
 
     Regex Iterate();
 
-    Regex operator+(const Regex &other);
+    Regex operator+(const Regex &other) const;
 
     Regex &operator+=(const Regex &other);
 
-    Regex operator*(const Regex &other);
+    Regex operator*(const Regex &other) const;
 
     Regex &operator*=(const Regex &other);
+
+    bool operator==(const Regex &other) const;
 
     void Print(std::ostream &os) const {
       root_node_->Print(os);
@@ -239,7 +241,7 @@ namespace regex {
     virtual T Process(const KleeneStar &regex, T inner) = 0;
 
     template<typename R, std::size_t ChildrenCount, std::size_t... Indices>
-    void ProcessImpl2(const BaseRegex<R, ChildrenCount> &regex, std::index_sequence<Indices...>) {
+    void ProcessImpl(const BaseRegex<R, ChildrenCount> &regex, std::index_sequence<Indices...>) {
       auto result = Process(static_cast<const R &>(regex), stack_[stack_.size() - ChildrenCount + Indices]...);
       stack_.resize(stack_.size() - ChildrenCount);
       stack_.push_back(std::move(result));
@@ -247,7 +249,7 @@ namespace regex {
 
     template<typename R, std::size_t ChildrenCount>
     void ProcessImpl(const BaseRegex<R, ChildrenCount> &regex) {
-      return ProcessImpl2<R, ChildrenCount>(regex, std::make_index_sequence<ChildrenCount>());
+      return ProcessImpl<R, ChildrenCount>(regex, std::make_index_sequence<ChildrenCount>());
     }
 
     void Exit(const Empty &regex) override {

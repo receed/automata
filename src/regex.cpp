@@ -1,4 +1,5 @@
 #include "regex.h"
+#include "automaton.h"
 #include "util.h"
 #include <string>
 #include <vector>
@@ -140,7 +141,7 @@ namespace regex {
     return Create<KleeneStar>(root_node_);
   }
 
-  Regex regex::Regex::operator+(const Regex &other) {
+  Regex regex::Regex::operator+(const Regex &other) const {
     if (other.root_node_->IsNone()) {
       return *this;
     }
@@ -154,7 +155,7 @@ namespace regex {
     return *this = *this + other;
   }
 
-  Regex regex::Regex::operator*(const Regex &other) {
+  Regex regex::Regex::operator*(const Regex &other) const {
     if (root_node_->IsNone() || other.root_node_->IsEmpty()) {
       return *this;
     }
@@ -166,5 +167,9 @@ namespace regex {
 
   Regex &regex::Regex::operator*=(const Regex &other) {
     return *this = *this * other;
+  }
+
+  bool regex::Regex::operator==(const Regex &other) const {
+    return automata::RegexToMCDFA(*this, {}).IsEquivalent(automata::RegexToMCDFA(other, {}));
   }
 }

@@ -3,17 +3,18 @@
 #include <vector>
 #include <algorithm>
 #include <set>
+#include <cassert>
 
 namespace automata {
-  bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) {
+  bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) const {
     return GetTransitions(state).GetTransition(symbol).has_value();
   }
 
-  std::optional<std::size_t> DeterministicAutomaton::GetNextState(std::size_t state, char symbol) {
+  std::optional<std::size_t> DeterministicAutomaton::GetNextState(std::size_t state, char symbol) const {
     return GetTransitions(state).GetTransition(symbol);
   }
 
-  bool DeterministicAutomaton::AcceptsString(std::string_view string) {
+  bool DeterministicAutomaton::AcceptsString(std::string_view string) const {
     std::size_t current_state = initial_state();
     for (char symbol: string) {
       auto next_state = GetNextState(current_state, symbol);
@@ -39,6 +40,10 @@ namespace automata {
       }
     }
     return *this;
+  }
+
+  DeterministicAutomaton DeterministicAutomaton::ToComplete(const std::vector<char> &alphabet) const {
+    return DeterministicAutomaton(*this).MakeComplete(alphabet);
   }
 
   DeterministicAutomaton &DeterministicAutomaton::Complement() {
@@ -102,7 +107,7 @@ namespace automata {
     DeterministicAutomaton result{GetStateNumber() * other.GetStateNumber(),
                                   get_index(initial_state(), other.initial_state())};
     for (std::size_t this_from_state = 0; this_from_state < GetStateNumber(); ++this_from_state) {
-      for (std::size_t other_from_state = 0; other_from_state < GetStateNumber(); ++other_from_state) {
+      for (std::size_t other_from_state = 0; other_from_state < other.GetStateNumber(); ++other_from_state) {
         auto new_state = get_index(this_from_state, other_from_state);
         if (IsAccepting(this_from_state) && other.IsAccepting(other_from_state)) {
           result.SetAccepting(new_state);
@@ -131,6 +136,48 @@ namespace automata {
       }
     }
     return true;
+  }
+
+  bool DeterministicAutomaton::IsIsomorphic(const DeterministicAutomaton &other) const {
+    if (GetStateNumber() != other.GetStateNumber()) {
+      return false;
+    }
+    std::vector<std::optional<std::size_t>> corresponding_state(GetStateNumber());
+    corresponding_state[initial_state()] = other.initial_state();
+    bool is_isomorphic = true;
+    Traverse([this, &other, &corresponding_state, &is_isomorphic](auto state) {
+      if (!corresponding_state[state]) {
+        is_isomorphic = false;
+        return;
+      }
+      auto other_state = *corresponding_state[state];
+      const auto &transitions = GetTransitions(state);
+      const auto &other_transitions = other.GetTransitions(other_state);
+      if (IsAccepting(state) != other.IsAccepting(other_state) || transitions.size() != other_transitions.size()) {
+        is_isomorphic = false;
+        return;
+      }
+      for (const auto &transition : GetTransitions(state)) {
+        auto other_to_state = other.GetNextState(other_state, transition.symbol);
+        if (!corresponding_state[transition.to_state]) {
+          corresponding_state[transition.to_state] = other_to_state;
+        } else if (corresponding_state[transition.to_state] != other_to_state){
+          is_isomorphic = false;
+          return;
+        }
+      }
+    });
+    return is_isomorphic;
+  }
+
+  bool DeterministicAutomaton::IsEquivalent(const DeterministicAutomaton &other) const {
+    auto minimized = ToComplete({}).Minimize();
+    auto other_minimized = other.ToComplete({}).Minimize();
+    // TODO: Maybe isomorphism check is redundant
+    auto is_equivalent_without_isomorphism_check = minimized == other_minimized;
+    auto is_equivalent = minimized.IsIsomorphic(other_minimized);
+    assert(is_equivalent_without_isomorphism_check == is_equivalent);
+    return is_equivalent;
   }
 
   NondeterministicAutomaton::NondeterministicAutomaton(const DeterministicAutomaton &deterministic) :

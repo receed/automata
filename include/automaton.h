@@ -38,12 +38,12 @@ namespace automata {
     using Map = std::map<char, std::size_t>;
 
     void Add(Transition<char> transition) {
-      transitions_.insert({transition.symbol, transition.to_state});
+      Map::insert({transition.symbol, transition.to_state});
     }
 
     std::optional<std::size_t> GetTransition(char symbol) const {
-      auto it = transitions_.find(symbol);
-      if (it == transitions_.end()) {
+      auto it = Map::find(symbol);
+      if (it == Map::end()) {
         return std::nullopt;
       }
       return it->second;
@@ -62,22 +62,21 @@ namespace automata {
         return {map_iterator_->first, map_iterator_->second};
       }
 
-      auto operator<=>(const Iterator &) const = default;
+      bool operator==(const Iterator &other) const {
+        return map_iterator_ == other.map_iterator_;
+      }
 
     private:
       Map::const_iterator map_iterator_;
     };
 
     Iterator begin() const {
-      return {transitions_.cbegin()};
+      return {Map::cbegin()};
     }
 
     Iterator end() const {
-      return {transitions_.cend()};
+      return {Map::cend()};
     }
-
-  private:
-    Map transitions_;
   };
 
   template<typename TransitionContainer>
@@ -187,27 +186,30 @@ namespace automata {
     }
 
   protected:
-    std::vector<std::size_t> GetReachableStates() const {
-      std::vector<bool> is_reachable(GetStateNumber());
+    template<typename Visitor>
+    void Traverse(Visitor &&visitor) const {
+      std::vector<bool> was_reached(GetStateNumber());
       std::stack<std::size_t> to_process;
-      is_reachable[initial_state()] = true;
+      was_reached[initial_state()] = true;
       to_process.push(initial_state());
       while (!to_process.empty()) {
         auto state = to_process.top();
         to_process.pop();
+        visitor(state);
         for (const auto &transition: GetTransitions(state)) {
-          if (!is_reachable[transition.to_state]) {
-            is_reachable[transition.to_state] = true;
+          if (!was_reached[transition.to_state]) {
+            was_reached[transition.to_state] = true;
             to_process.push(transition.to_state);
           }
         }
       }
+    }
+
+    std::vector<std::size_t> GetReachableStates() const {
       std::vector<std::size_t> reachable_states;
-      for (std::size_t state = 0; state < GetStateNumber(); ++state) {
-        if (is_reachable[state]) {
-          reachable_states.push_back(state);
-        }
-      }
+      Traverse([&reachable_states](auto state) {
+        reachable_states.push_back(state);
+      });
       return reachable_states;
     }
 
@@ -274,13 +276,15 @@ namespace automata {
   public:
     using Automaton<TransitionMap>::Automaton;
 
-    bool HasTransition(std::size_t state, char symbol);
+    bool HasTransition(std::size_t state, char symbol) const;
 
-    std::optional<std::size_t> GetNextState(std::size_t state, char symbol);
+    std::optional<std::size_t> GetNextState(std::size_t state, char symbol) const;
 
-    bool AcceptsString(std::string_view string);
+    bool AcceptsString(std::string_view string) const;
 
     DeterministicAutomaton &MakeComplete(const std::vector<char> &alphabet);
+
+    DeterministicAutomaton ToComplete(const std::vector<char> &alphabet) const;
 
     DeterministicAutomaton &Complement();
 
@@ -289,11 +293,16 @@ namespace automata {
     DeterministicAutomaton Intersection(const DeterministicAutomaton &other) const;
 
     bool IsComplete() const;
+
+    bool IsIsomorphic(const DeterministicAutomaton &other) const;
+
+    bool IsEquivalent(const DeterministicAutomaton &other) const;
   };
 
   class NondeterministicAutomaton : public Automaton<TransitionVector<std::string>> {
   public:
     using Automaton<TransitionVector<std::string>>::Automaton;
+
     NondeterministicAutomaton(const DeterministicAutomaton &deterministic);
 
     NondeterministicAutomaton &SplitTransitions();

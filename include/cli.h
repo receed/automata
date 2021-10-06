@@ -12,6 +12,9 @@ namespace cli {
     class AbstractCommandHandle;
   }
 
+  automata::DeterministicAutomaton ToDfa(const Object& object);
+  automata::NondeterministicAutomaton ToNfa(const Object& object);
+
   class CLI {
   public:
     CLI();
@@ -193,8 +196,7 @@ namespace cli {
           if constexpr(std::is_same_v<T, regex::Regex>) {
             this->cli_.AddObject(automata::RegexComplement(object, alphabet_));
           } else if constexpr(std::is_same_v<T, automata::DeterministicAutomaton>) {
-            auto copy = object;
-            this->cli_.AddObject(copy.MakeComplete(alphabet_).Complement());
+            this->cli_.AddObject(object.ToComplete(alphabet_).Complement());
           }
         }, *this->object_);
       }
@@ -209,12 +211,12 @@ namespace cli {
       }
     };
 
-    class ToNFA : public OnObject<regex::Regex> {
+    class ToNFA : public OnObject<Object> {
     public:
       using OnObject::OnObject;
 
       void Execute() override {
-        cli_.AddObject(automata::NondeterministicAutomaton::FromRegex(*object_));
+        cli_.AddObject(ToNfa(*object_));
       }
     };
 
@@ -232,19 +234,30 @@ namespace cli {
     public:
       OnObjects(CLI &cli, std::istream &args) : Command(cli, args) {
         first_ = &GetObject<T>();
-        first_ = &GetObject<Q>();
+        second_ = &GetObject<Q>();
       }
 
       T *first_;
       Q *second_;
     };
 
-    class Intersection : public OnObjects<automata::DeterministicAutomaton> {
+    class Intersection : public OnObjects<Object> {
     public:
       using OnObjects::OnObjects;
 
       void Execute() override {
-        this->cli_.AddObject(first_->Intersection(*second_));
+        this->cli_.AddObject(ToDfa(*first_).Intersection(ToDfa(*second_)));
+      }
+    };
+
+    class Equivalence : public OnObjects<Object> {
+    public:
+      using OnObjects::OnObjects;
+
+      void Execute() override {
+        if (!ToDfa(*first_).IsEquivalent(ToDfa(*second_)))
+          std::cout << "not ";
+        std::cout << "equivalent" << std::endl;
       }
     };
 
