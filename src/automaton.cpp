@@ -6,6 +6,12 @@
 #include <cassert>
 
 namespace automata {
+  void SkipNewline(std::istream &is) {
+    if (is.get() != '\n') {
+      throw InvalidInputException("\\n expected");
+    }
+  }
+
   bool DeterministicAutomaton::HasTransition(std::size_t state, char symbol) const {
     return GetTransitions(state).GetTransition(symbol).has_value();
   }

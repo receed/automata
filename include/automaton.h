@@ -169,6 +169,12 @@ namespace automata {
       is_accepting_[state] = accepting;
     }
 
+    void ReadAcceptingState(std::istream &is) {
+      std::size_t state;
+      is >> state;
+      SetAccepting(state);
+    }
+
     template<typename F>
     void ForEachTransition(F &&function) const {
       for (std::size_t state = 0; state < GetStateNumber(); ++state) {
@@ -238,35 +244,27 @@ namespace automata {
     return os;
   }
 
+  void SkipNewline(std::istream &is);
+
   template<typename T>
   T Parse(std::istream &is) {
     std::size_t state_number;
     std::size_t initial_state;
     is >> state_number >> initial_state;
     T automaton{state_number, initial_state};
-    if (is.get() != '\n') {
-      throw InvalidInputException("\\n expected");
-    }
+    SkipNewline(is);
     while (is.peek() != '\n') {
-      std::size_t state;
-      is >> state;
-      automaton.SetAccepting(state);
+      automaton.ReadAcceptingState(is);
     }
-    if (is.get() != '\n') {
-      throw InvalidInputException("\\n expected");
-    }
+    SkipNewline(is);
     while (is.peek() != '\n') {
       std::size_t from_state, to_state;
       typename T::TransitionString transition_string;
       is >> from_state >> to_state >> transition_string;
       automaton.AddTransition(from_state, to_state, transition_string);
-      if (is.get() != '\n') {
-        throw InvalidInputException("\\n expected");
-      }
+      SkipNewline(is);
     }
-    if (is.get() != '\n') {
-      throw InvalidInputException("\\n expected");
-    }
+    SkipNewline(is);
     return automaton;
   }
 

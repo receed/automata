@@ -5,6 +5,41 @@
 
 using namespace automata;
 
+TEST_SUITE("Automaton I/O") {
+  TEST_CASE("Add accepting state") {
+    DeterministicAutomaton automaton{3, 1, {0}};
+    automaton.SetAccepting(1);
+    CHECK_EQ(std::vector<bool>{1, 1, 0}, automaton.is_accepting());
+  }
+
+  TEST_CASE("Remove accepting state") {
+    DeterministicAutomaton automaton{3, 1, {0, 1}};
+    automaton.SetAccepting(1, false);
+    CHECK_EQ(std::vector<bool>{1, 0, 0}, automaton.is_accepting());
+  }
+
+  TEST_CASE("Read accepting state") {
+    std::istringstream input("1 2");
+    NondeterministicAutomaton automaton{3, 0};
+    automaton.ReadAcceptingState(input);
+    CHECK_EQ(std::vector<bool>{0, 1, 0}, automaton.is_accepting());
+  }
+
+  TEST_CASE("Read automaton") {
+    std::istringstream input("3 1\n0 2\n1 2 a\n1 0 b\n\n");
+    CHECK_EQ(DeterministicAutomaton{3, 1, {0, 2}, {{1, 2, 'a'}, {1, 0, 'b'}}}, Parse<DeterministicAutomaton>(input));
+  }
+
+  TEST_CASE("Print automaton") {
+    DeterministicAutomaton automaton{3, 1, {0, 2}, {{1, 2, 'a'}, {1, 0, 'b'}}};
+    std::ostringstream output;
+    output << automaton;
+    std::cout << automaton;
+    std::string expected = "3 states\nInitial state: 1\nState 0 (accepting):\nState 1:\n  to 2 by a\n  to 0 by b\nState 2 (accepting):\n";
+    CHECK_EQ(expected, output.str());
+  }
+}
+
 TEST_SUITE("Split transitions") {
   TEST_CASE("Short transitions") {
     CHECK_EQ(
