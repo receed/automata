@@ -110,6 +110,40 @@ namespace regex {
     return std::get<Regex>(stack[0]);
   }
 
+  Regex Regex::ParseReversePolish(const std::string &input) {
+    std::vector<Regex> stack;
+    for (char symbol : input) {
+      if (symbol == '0') {
+        stack.emplace_back(Create<None>());
+      } else if (symbol == '1') {
+        stack.emplace_back(Create<Empty>());
+      } else if (symbol == '*') {
+        if (stack.empty()) {
+          throw InvalidInputException("No argument for *");
+        }
+        stack.back() = stack.back().Iterate();
+      } else if (symbol == '+') {
+        if (stack.size() < 2) {
+          throw InvalidInputException("Not enough arguments for +");
+        }
+        stack[stack.size() - 2] = stack[stack.size() - 2] + stack.back();
+        stack.pop_back();
+      } else if (symbol == '.') {
+        if (stack.size() < 2) {
+          throw InvalidInputException("Not enough arguments for .");
+        }
+        stack[stack.size() - 2] = stack[stack.size() - 2] * stack.back();
+        stack.pop_back();
+      } else {
+        stack.emplace_back(regex::Create<Literal>(symbol));
+      }
+    }
+    if (stack.size() != 1) {
+      throw InvalidInputException("Not all arguments are used in expression");
+    }
+    return stack[0];
+  }
+
   std::istream &operator>>(std::istream &is, Regex &expression) {
     std::string line;
     std::getline(is, line);

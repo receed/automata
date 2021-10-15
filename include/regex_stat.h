@@ -85,11 +85,14 @@ namespace regex_stat {
     const std::string &pattern_;
   };
 
-  long GetMaxMatchingPrefix(const regex::Regex &regex, const std::string &pattern) {
+  std::size_t GetMaxMatchingPrefix(const regex::Regex &regex, const std::string &pattern) {
     StringVisitor visitor {pattern};
     regex.Visit(visitor);
     auto possibleSubstrings = visitor.GetResult();
     auto max_prefix = std::find(possibleSubstrings[0].rbegin(), possibleSubstrings[0].rend(), true);
+    if (max_prefix == possibleSubstrings[0].rend()) {
+      return 0;
+    }
     return possibleSubstrings[0].rend() - max_prefix - 1;
   }
 }

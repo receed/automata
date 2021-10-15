@@ -156,6 +156,8 @@ namespace regex {
 
     static Regex Parse(const std::string &input);
 
+    static Regex ParseReversePolish(const std::string &input);
+
   private:
     RegexPtr root_node_;
   };
