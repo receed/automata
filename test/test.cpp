@@ -297,8 +297,7 @@ TEST_SUITE("Print and Parse regex") {
     CHECK_EQ(
         NondeterministicAutomaton::FromRegex(regex::Regex::Parse("a*+b")),
         NondeterministicAutomaton{7, 0, {6},
-                                  {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {2, 3, "a"}, {3, 1, ""}, {3, 6, ""}, {4, 5, "b"},
-                                   {5, 6, ""}}}
+                                  {{0, 1, ""}, {0, 4, ""}, {1, 2, ""}, {1, 6, ""}, {2, 3, "a"}, {3, 1, ""}, {4, 5, "b"}, {5, 6, ""}}}
     );
   }
 }

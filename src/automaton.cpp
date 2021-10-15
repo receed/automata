@@ -412,8 +412,8 @@ namespace automata {
     auto accepting = result.AddState();
     result.AddTransition(0, 1, "");
     result.AddTransition(0, first.GetStateNumber() + 1, "");
-    result.AddTransition(first.GetStateNumber(), accepting, "");
-    result.AddTransition(result.GetStateNumber() - 2, accepting, "");
+    result.AddTransition(1 + first.GetSingleAcceptingState(), accepting, "");
+    result.AddTransition(1 + first.GetStateNumber() + second.GetSingleAcceptingState(), accepting, "");
     result.SetAccepting(accepting);
     return result;
   }
