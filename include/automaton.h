@@ -324,10 +324,10 @@ namespace automata {
 
     NondeterministicAutomaton Process(const regex::Empty &regex) override;
 
+    NondeterministicAutomaton Process(const regex::Literal &regex) override;
+
     NondeterministicAutomaton Process(const regex::Concatenation &regex, NondeterministicAutomaton first,
                                       NondeterministicAutomaton second) override;
-
-    NondeterministicAutomaton Process(const regex::Literal &regex) override;
 
     NondeterministicAutomaton
     Process(const regex::Alteration &regex, NondeterministicAutomaton first, NondeterministicAutomaton second) override;

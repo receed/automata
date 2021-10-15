@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <regex.h>
+
 
 namespace regex {
   void RegexNode::Print(std::size_t outer_priority, std::ostream &os) const {
@@ -99,7 +101,7 @@ namespace regex {
       } else if (symbol == '1') {
         stack.emplace_back(Create<Empty>());
       } else {
-        stack.emplace_back(Create<regex::Literal>(symbol));
+        stack.emplace_back(Create<Literal>(symbol));
       }
     }
     if (stack.size() != 1) {

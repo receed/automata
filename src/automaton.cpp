@@ -422,7 +422,7 @@ namespace automata {
     NondeterministicAutomaton result{1, 0};
     MergeAutomatons(result, inner);
     result.AddTransition(0, 1, "");
-    result.AddTransition(result.GetStateNumber() - 1, 0, "");
+    result.AddTransition(1 + inner.GetSingleAcceptingState(), 0, "");
     result.SetAccepting(0);
     return result;
   }
