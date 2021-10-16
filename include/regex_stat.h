@@ -15,35 +15,35 @@ namespace regex_stat {
     }
 
     PossibleSubstrings Process(const regex::Empty &regex) override {
-      auto possibleSubstrings = GetValue();
+      auto possible_substrings = GetValue();
       for (std::size_t position = 0; position <= pattern_.size(); ++position) {
-        possibleSubstrings[position][position] = true;
+        possible_substrings[position][position] = true;
       }
-      return possibleSubstrings;
+      return possible_substrings;
     }
 
     PossibleSubstrings Process(const regex::Literal &regex) override {
-      auto possibleSubstrings = GetValue();
+      auto possible_substrings = GetValue();
       for (std::size_t position = 0; position < pattern_.size(); ++position) {
         if (pattern_[position] == regex.symbol) {
-          possibleSubstrings[position][position + 1] = true;
+          possible_substrings[position][position + 1] = true;
         }
       }
-      return possibleSubstrings;
+      return possible_substrings;
     }
 
     PossibleSubstrings Process(const regex::Concatenation &regex, PossibleSubstrings first, PossibleSubstrings second) override {
-      auto possibleSubstrings = GetValue();
+      auto possible_substrings = GetValue();
       for (std::size_t right = 0; right <= pattern_.size(); ++right) {
         for (std::size_t pivot = 0; pivot <= right; ++pivot) {
           for (std::size_t left = 0; left <= pivot; ++left) {
             if (first[left][pivot] && second[pivot][right]) {
-              possibleSubstrings[left][right] = true;
+              possible_substrings[left][right] = true;
             }
           }
         }
       }
-      return possibleSubstrings;
+      return possible_substrings;
     }
 
     PossibleSubstrings Process(const regex::Alteration &regex, PossibleSubstrings first, PossibleSubstrings second) override {
@@ -70,12 +70,12 @@ namespace regex_stat {
       return std::vector(pattern_.size() + 1, std::vector(pattern_.size() + 1, false));
     }
 
-    void MakeTransitiveClosure(PossibleSubstrings &possibleSubstrings) {
+    void MakeTransitiveClosure(PossibleSubstrings &possible_substrings) {
       for (std::size_t left = pattern_.size() + 1; left-- > 0; ) {
         for (std::size_t right = left; right <= pattern_.size(); ++right) {
           for (std::size_t pivot = left; pivot <= right; ++pivot) {
-            if (possibleSubstrings[left][pivot] && possibleSubstrings[pivot][right]) {
-              possibleSubstrings[left][right] = true;
+            if (possible_substrings[left][pivot] && possible_substrings[pivot][right]) {
+              possible_substrings[left][right] = true;
             }
           }
         }
@@ -88,12 +88,12 @@ namespace regex_stat {
   std::size_t GetMaxMatchingPrefix(const regex::Regex &regex, const std::string &pattern) {
     StringVisitor visitor {pattern};
     regex.Visit(visitor);
-    auto possibleSubstrings = visitor.GetResult();
-    auto max_prefix = std::find(possibleSubstrings[0].rbegin(), possibleSubstrings[0].rend(), true);
-    if (max_prefix == possibleSubstrings[0].rend()) {
+    auto possible_substrings = visitor.GetResult();
+    auto max_prefix = std::find(possible_substrings[0].rbegin(), possible_substrings[0].rend(), true);
+    if (max_prefix == possible_substrings[0].rend()) {
       return 0;
     }
-    return possibleSubstrings[0].rend() - max_prefix - 1;
+    return possible_substrings[0].rend() - max_prefix - 1;
   }
 }
 
