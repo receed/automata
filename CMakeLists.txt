@@ -26,12 +26,15 @@ include_directories(include)
 add_executable(automata
         src/main.cpp
         src/automaton.cpp
+        src/max_matching_prefix.cpp
         src/regex.cpp
         src/cli.cpp)
 
 add_executable(automata_test
         test/test.cpp
+        test/max_matching_prefix_test.cpp
         src/automaton.cpp
+        src/max_matching_prefix.cpp
         src/regex.cpp
         )
 

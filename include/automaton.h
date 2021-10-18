@@ -19,6 +19,8 @@ namespace automata {
 
   template<typename T>
   struct Transition {
+    Transition(T symbol, std::size_t to_state) : symbol(std::move(symbol)), to_state(to_state) {}
+
     T symbol;
     std::size_t to_state;
 
