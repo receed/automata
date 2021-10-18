@@ -32,4 +32,4 @@ States are zero-indexed.
 * `intersection [id1] [id2]` -- builds a DFA accepting the words accepted by both given DFAs
 * `to_regex [id]` -- builds a regular expression by an automaton
 * `to_nfa [id]` -- builds a NFA by a regular expression
-* `to_mcdfa [id]` -- builds a minimal complete FFA by a regular expression
+* `to_mcdfa [id]` -- builds a minimal complete DFA by a regular expression

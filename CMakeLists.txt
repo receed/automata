@@ -23,12 +23,24 @@ include_directories(${DOCTEST_INCLUDE_DIR})
 set(CMAKE_CXX_STANDARD 20)
 include_directories(include)
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" ${CMAKE_SOURCE_DIR}/cmake)
+include(CodeCoverage)
+SET(CMAKE_CXX_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
+SET(CMAKE_C_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
+SETUP_TARGET_FOR_COVERAGE(
+        test_coverage  # Name for custom target.
+        automata_test         # Name of the test driver executable that runs the tests.
+        coverage            # Name of output directory.
+)
+
 add_executable(automata
         src/main.cpp
         src/automaton.cpp
         src/max_matching_prefix.cpp
         src/regex.cpp
         src/cli.cpp)
+
+target_compile_options(automata PRIVATE "-DDOCTEST_CONFIG_DISABLE")
 
 add_executable(automata_test
         test/test.cpp
@@ -39,7 +51,4 @@ add_executable(automata_test
         src/regex.cpp
         )
 
-add_compile_options(-Wall -Wextra -pedantic -Werror)
-
-set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+#add_compile_options(-Wall -Wextra -pedantic -Werror)

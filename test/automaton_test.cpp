@@ -33,7 +33,6 @@ TEST_SUITE("Automaton I/O") {
     DeterministicAutomaton automaton{3, 1, {0, 2}, {{1, 2, 'a'}, {1, 0, 'b'}}};
     std::ostringstream output;
     output << automaton;
-    std::cout << automaton;
     std::string expected = "3 states\nInitial state: 1\nState 0 (accepting):\nState 1:\n  to 2 by a\n  to 0 by b\nState 2 (accepting):\n";
     CHECK_EQ(expected, output.str());
   }
