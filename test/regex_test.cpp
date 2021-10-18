@@ -41,7 +41,47 @@ TEST_SUITE("Print and Parse regex") {
   }
 }
 
-TEST_SUITE("Print and Parse regex") {
+TEST_SUITE("Parse reverse Polish notation") {
+  TEST_CASE("None") {
+    CHECK_EQ(Create<None>(), Regex::ParseReversePolish("0"));
+  }
+  TEST_CASE("Empty string") {
+    CHECK_EQ(Create<Empty>(), Regex::ParseReversePolish("1"));
+  }
+  TEST_CASE("Simple string") {
+    CHECK_EQ(Create<Literal>('a') * Create<Literal>('b') * Create<Literal>('c'), Regex::ParseReversePolish("ab.c."));
+  }
+  TEST_CASE("Alteration") {
+    CHECK_EQ(Create<Literal>('a') + Create<Literal>('b') + Create<Literal>('c'), Regex::ParseReversePolish("ab+c+"));
+  }
+  TEST_CASE("Kleene star") {
+    CHECK_EQ(Create<Literal>('a').Iterate(), Regex::ParseReversePolish("a*"));
+  }
+  TEST_CASE("Long regex") {
+    CHECK_EQ(Create<Literal>('c') + Create<Literal>('a').Iterate() * Create<Literal>('b'), Regex::ParseReversePolish("ca*b.+"));
+  }
+  TEST_CASE("No argument for *") {
+    CHECK_THROWS_AS_MESSAGE(Regex::ParseReversePolish("*"), InvalidInputException, "No argument for *");
+  }
+  TEST_CASE("Not enough arguments for +") {
+    CHECK_THROWS_AS_MESSAGE(Regex::ParseReversePolish("a+"), InvalidInputException, "Not enough arguments for +");
+  }
+  TEST_CASE("Not enough arguments for .") {
+    CHECK_THROWS_AS_MESSAGE(Regex::ParseReversePolish("a."), InvalidInputException, "Not enough arguments for .");
+  }
+  TEST_CASE("Not all arguments are used in expression") {
+    CHECK_THROWS_AS_MESSAGE(Regex::ParseReversePolish("ab"), InvalidInputException, "Not all arguments are used in expression");
+  }
+}
+
+TEST_CASE("Input operator for regex") {
+  std::istringstream is("c+a*b");
+  Regex regex;
+  is >> regex;
+  CHECK_EQ(Create<Literal>('c') + Create<Literal>('a').Iterate() * Create<Literal>('b'), regex);
+}
+
+TEST_SUITE("Create automaton by regex") {
   TEST_CASE("Empty set") {
     CHECK_EQ(
         NondeterministicAutomaton::FromRegex(regex::Regex::Parse("0")),

@@ -39,6 +39,18 @@ TEST_SUITE("Automaton I/O") {
   }
 }
 
+TEST_SUITE("Automaton accepts string") {
+  TEST_CASE("String is accepted") {
+    CHECK(DeterministicAutomaton{3, 0, {2}, {{0, 1, 'a'}, {1, 2, 'b'}}}.AcceptsString("ab"));
+  }
+  TEST_CASE("Final state is not accepting") {
+    CHECK_FALSE(DeterministicAutomaton{3, 0, {}, {{0, 1, 'a'}, {1, 2, 'b'}}}.AcceptsString("ab"));
+  }
+  TEST_CASE("No transition for a symbol") {
+    CHECK_FALSE(DeterministicAutomaton{2, 0, {0, 1}, {{0, 1, 'a'}}}.AcceptsString("ab"));
+  }
+}
+
 TEST_SUITE("Split transitions") {
   TEST_CASE("Short transitions") {
     CHECK_EQ(
