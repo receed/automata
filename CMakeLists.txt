@@ -32,7 +32,8 @@ add_executable(automata
 
 add_executable(automata_test
         test/test.cpp
-        test/max_matching_prefix_test.cpp
+        test/automaton_test.cpp
+        test/regex_test.cpp
         src/automaton.cpp
         src/max_matching_prefix.cpp
         src/regex.cpp
